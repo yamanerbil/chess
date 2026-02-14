@@ -22,8 +22,8 @@ enum DesignSystem {
         static let backgroundLight = Color(red: 0.980, green: 0.980, blue: 0.980) // #FAFAFA
         static let backgroundDark = Color(red: 0.102, green: 0.102, blue: 0.180) // #1A1A2E
 
-        static let cardBackground = Color(.systemBackground)
-        static let secondaryText = Color(.secondaryLabel)
+        static let cardBackground = Color(red: 1.0, green: 1.0, blue: 1.0)
+        static let secondaryText = Color.secondary
     }
 
     // MARK: - Typography

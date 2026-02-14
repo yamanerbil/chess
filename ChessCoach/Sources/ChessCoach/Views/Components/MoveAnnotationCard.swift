@@ -73,7 +73,7 @@ struct MoveAnnotationCard: View {
             .padding(DesignSystem.Layout.cardPadding)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadius)
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(Color.gray.opacity(0.12))
             )
         } else {
             // No annotation available
@@ -92,7 +92,7 @@ struct MoveAnnotationCard: View {
             .padding(DesignSystem.Layout.cardPadding)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadius)
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(Color.gray.opacity(0.12))
             )
         }
     }

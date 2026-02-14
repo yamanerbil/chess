@@ -73,7 +73,7 @@ struct MoveNavigationBar: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadius)
-                .fill(Color(.secondarySystemBackground))
+                .fill(Color.gray.opacity(0.12))
         )
         .onDisappear {
             stopAutoPlay()
