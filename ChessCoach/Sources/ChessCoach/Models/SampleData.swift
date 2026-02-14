@@ -118,8 +118,8 @@ enum SampleData {
         // 13... Bf8
         addMove(san: "Bf8", from: Square(file: 4, rank: 6), to: Square(file: 5, rank: 7),
                 piece: ChessPiece(color: B, type: .bishop), moveNumber: 13, color: B)
-        // 14. Nd5
-        addMove(san: "Nd5", from: Square(file: 5, rank: 2), to: Square(file: 3, rank: 4),
+        // 14. Ng3
+        addMove(san: "Ng3", from: Square(file: 5, rank: 0), to: Square(file: 6, rank: 2),
                 piece: ChessPiece(color: W, type: .knight), moveNumber: 14, color: W)
 
         // Sample annotations
@@ -239,13 +239,13 @@ enum SampleData {
             classification: .good,
             explanation: "Flexible — keeping the bishop ready to redeploy.",
             evalAfter: 0.75)
-        // 14. Nd5 - Brilliant!
+        // 14. Ng3 - Brilliant!
         annotations[26] = MoveAnnotation(
             classification: .brilliant,
-            explanation: "Your knight lands on a powerful central square where it can't be chased away by pawns. This creates threats all over the board!",
-            bestMove: "Nd5",
+            explanation: "The knight completes its journey to g3 — perfectly positioned to launch a kingside attack! From here it eyes f5 and h5.",
+            bestMove: "Ng3",
             evalAfter: 1.3,
-            engineLines: ["14...Nxd5 15.exd5 Nb6 16.Ng3", "14...c6 15.Nxf6+ Nxf6 16.Bg5"])
+            engineLines: ["14...g6 15.Nh5 Bg7 16.Bg5", "14...Nb6 15.Nf5 Na4 16.Rb1"])
 
         return Game(
             white: "You",
