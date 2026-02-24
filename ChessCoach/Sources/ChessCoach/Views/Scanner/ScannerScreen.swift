@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// Scoresheet Scanner — placeholder for camera-based scoresheet capture
+/// Scoresheet Scanner — camera capture with full scan flow
 struct ScannerScreen: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var showProcessing = false
+    @State private var showCorrection = false
     @State private var showMetadata = false
+    @State private var scannedMoves: [ScannedMove] = []
 
     let knownTournaments: [String]
     let onGameCreated: (GameMetadata) -> Void
@@ -20,12 +23,10 @@ struct ScannerScreen: View {
                         .frame(height: 300)
 
                     VStack(spacing: 16) {
-                        // Viewfinder icon
                         Image(systemName: "viewfinder")
                             .font(.system(size: 64))
                             .foregroundColor(DesignSystem.Colors.primary.opacity(0.4))
 
-                        // Dashed guide rectangle
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
                             .foregroundColor(DesignSystem.Colors.primary.opacity(0.3))
@@ -40,7 +41,7 @@ struct ScannerScreen: View {
                 }
                 .padding(.horizontal, 24)
 
-                Text("Camera capture coming soon!")
+                Text("Tap the shutter to scan a scoresheet")
                     .font(DesignSystem.Fonts.coaching(15))
                     .foregroundColor(DesignSystem.Colors.secondaryText)
             }
@@ -58,9 +59,9 @@ struct ScannerScreen: View {
                                height: DesignSystem.Layout.minTouchTarget)
                 }
 
-                // Capture button
+                // Capture button — triggers scan flow
                 Button {
-                    showMetadata = true
+                    showProcessing = true
                 } label: {
                     Circle()
                         .strokeBorder(DesignSystem.Colors.primary, lineWidth: 4)
@@ -74,7 +75,7 @@ struct ScannerScreen: View {
 
                 // Gallery
                 Button {
-                    showMetadata = true
+                    showProcessing = true
                 } label: {
                     Image(systemName: "photo.on.rectangle")
                         .font(.system(size: 20))
@@ -84,7 +85,7 @@ struct ScannerScreen: View {
                 }
             }
 
-            // Manual entry option
+            // Manual entry — skip scanning, go straight to metadata
             Button {
                 showMetadata = true
             } label: {
@@ -101,6 +102,28 @@ struct ScannerScreen: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
+            }
+        }
+        // Flow: Scanner → Processing → Correction → Metadata
+        .navigationDestination(isPresented: $showProcessing) {
+            ProcessingScreen { moves in
+                scannedMoves = moves
+                showProcessing = false
+                // Short delay to let navigation settle, then show correction
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showCorrection = true
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showCorrection) {
+            MoveCorrectionScreen(
+                viewModel: MoveCorrectionViewModel(scannedMoves: scannedMoves)
+            ) { correctedMoves in
+                scannedMoves = correctedMoves
+                showCorrection = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showMetadata = true
+                }
             }
         }
         .navigationDestination(isPresented: $showMetadata) {
