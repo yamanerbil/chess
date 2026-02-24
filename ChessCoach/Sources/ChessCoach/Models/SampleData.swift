@@ -5,7 +5,7 @@ enum SampleData {
 
     /// A sample Ruy Lopez game: 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6 5.O-O Be7
     /// 6.Re1 b5 7.Bb3 d6 8.c3 O-O 9.h3 Nb8 10.d4 Nbd7 11.Nbd2 Bb7 12.Bc2 Re8
-    /// 13.Nf1 Bf8 14.Nd5
+    /// 13.Nf1 Bf8 14.Ng3
     static let sampleGame: Game = {
         var positions: [BoardPosition] = [.initial]
         var moves: [ChessMove] = []
@@ -260,5 +260,244 @@ enum SampleData {
             annotations: annotations,
             positions: positions
         )
+    }()
+
+    // MARK: - Additional sample games for Home screen
+
+    static let sampleGame2: Game = {
+        // A shorter Sicilian game where the player (Black) lost
+        var positions: [BoardPosition] = [.initial]
+        var moves: [ChessMove] = []
+        var pos = BoardPosition.initial
+
+        func addMove(
+            san: String, from: Square, to: Square, piece: ChessPiece,
+            captured: ChessPiece? = nil, isCastle: Bool = false,
+            moveNumber: Int, color: PieceColor
+        ) {
+            let move = ChessMove(
+                san: san, from: from, to: to, piece: piece,
+                captured: captured, isCastle: isCastle,
+                moveNumber: moveNumber, color: color
+            )
+            moves.append(move)
+            pos = pos.applyingMove(move)
+            positions.append(pos)
+        }
+
+        let W = PieceColor.white
+        let B = PieceColor.black
+
+        // 1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6
+        addMove(san: "e4", from: Square(file: 4, rank: 1), to: Square(file: 4, rank: 3),
+                piece: ChessPiece(color: W, type: .pawn), moveNumber: 1, color: W)
+        addMove(san: "c5", from: Square(file: 2, rank: 6), to: Square(file: 2, rank: 4),
+                piece: ChessPiece(color: B, type: .pawn), moveNumber: 1, color: B)
+        addMove(san: "Nf3", from: Square(file: 6, rank: 0), to: Square(file: 5, rank: 2),
+                piece: ChessPiece(color: W, type: .knight), moveNumber: 2, color: W)
+        addMove(san: "d6", from: Square(file: 3, rank: 6), to: Square(file: 3, rank: 5),
+                piece: ChessPiece(color: B, type: .pawn), moveNumber: 2, color: B)
+        addMove(san: "d4", from: Square(file: 3, rank: 1), to: Square(file: 3, rank: 3),
+                piece: ChessPiece(color: W, type: .pawn), moveNumber: 3, color: W)
+        addMove(san: "cxd4", from: Square(file: 2, rank: 4), to: Square(file: 3, rank: 3),
+                piece: ChessPiece(color: B, type: .pawn),
+                captured: ChessPiece(color: W, type: .pawn), moveNumber: 3, color: B)
+        addMove(san: "Nxd4", from: Square(file: 5, rank: 2), to: Square(file: 3, rank: 3),
+                piece: ChessPiece(color: W, type: .knight),
+                captured: ChessPiece(color: B, type: .pawn), moveNumber: 4, color: W)
+        addMove(san: "Nf6", from: Square(file: 6, rank: 7), to: Square(file: 5, rank: 5),
+                piece: ChessPiece(color: B, type: .knight), moveNumber: 4, color: B)
+        addMove(san: "Nc3", from: Square(file: 1, rank: 0), to: Square(file: 2, rank: 2),
+                piece: ChessPiece(color: W, type: .knight), moveNumber: 5, color: W)
+        addMove(san: "a6", from: Square(file: 0, rank: 6), to: Square(file: 0, rank: 5),
+                piece: ChessPiece(color: B, type: .pawn), moveNumber: 5, color: B)
+
+        var annotations: [Int: MoveAnnotation] = [:]
+        annotations[0] = MoveAnnotation(classification: .great, explanation: "Standard opening move.", evalAfter: 0.3)
+        annotations[1] = MoveAnnotation(classification: .great, explanation: "The Sicilian Defense — fighting for the center asymmetrically!", evalAfter: 0.3)
+        annotations[2] = MoveAnnotation(classification: .great, explanation: "Developing the knight naturally.", evalAfter: 0.3)
+        annotations[3] = MoveAnnotation(classification: .good, explanation: "Preparing to support e5 later.", evalAfter: 0.35)
+        annotations[4] = MoveAnnotation(classification: .great, explanation: "Opening the center.", evalAfter: 0.4)
+        annotations[5] = MoveAnnotation(classification: .great, explanation: "Good exchange — you open the c-file for your rook later.", evalAfter: 0.3)
+        annotations[6] = MoveAnnotation(classification: .great, explanation: "Recapturing with the knight in the center.", evalAfter: 0.4)
+        annotations[7] = MoveAnnotation(classification: .great, explanation: "Developing and attacking e4.", evalAfter: 0.3)
+        annotations[8] = MoveAnnotation(classification: .great, explanation: "Developing another piece.", evalAfter: 0.35)
+        annotations[9] = MoveAnnotation(classification: .inaccuracy,
+                                        explanation: "a6 is playable but e5 was more active here, fighting for the center right away.",
+                                        bestMove: "e5", evalAfter: 0.5)
+
+        let cal = Calendar.current
+        let twoDaysAgo = cal.date(byAdding: .day, value: -2, to: Date())
+
+        return Game(
+            white: "Jake M.",
+            black: "You",
+            event: "Spring Open",
+            round: "2",
+            date: twoDaysAgo,
+            result: .whiteWins,
+            opening: "Sicilian, Najdorf",
+            playerColor: .black,
+            moves: moves,
+            annotations: annotations,
+            positions: positions
+        )
+    }()
+
+    static let sampleGame3: Game = {
+        // A short Italian Game draw
+        var positions: [BoardPosition] = [.initial]
+        var moves: [ChessMove] = []
+        var pos = BoardPosition.initial
+
+        func addMove(
+            san: String, from: Square, to: Square, piece: ChessPiece,
+            captured: ChessPiece? = nil, isCastle: Bool = false,
+            moveNumber: Int, color: PieceColor
+        ) {
+            let move = ChessMove(
+                san: san, from: from, to: to, piece: piece,
+                captured: captured, isCastle: isCastle,
+                moveNumber: moveNumber, color: color
+            )
+            moves.append(move)
+            pos = pos.applyingMove(move)
+            positions.append(pos)
+        }
+
+        let W = PieceColor.white
+        let B = PieceColor.black
+
+        // 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 5. d4 exd4 6. cxd4 Bb4+
+        addMove(san: "e4", from: Square(file: 4, rank: 1), to: Square(file: 4, rank: 3),
+                piece: ChessPiece(color: W, type: .pawn), moveNumber: 1, color: W)
+        addMove(san: "e5", from: Square(file: 4, rank: 6), to: Square(file: 4, rank: 4),
+                piece: ChessPiece(color: B, type: .pawn), moveNumber: 1, color: B)
+        addMove(san: "Nf3", from: Square(file: 6, rank: 0), to: Square(file: 5, rank: 2),
+                piece: ChessPiece(color: W, type: .knight), moveNumber: 2, color: W)
+        addMove(san: "Nc6", from: Square(file: 1, rank: 7), to: Square(file: 2, rank: 5),
+                piece: ChessPiece(color: B, type: .knight), moveNumber: 2, color: B)
+        addMove(san: "Bc4", from: Square(file: 5, rank: 0), to: Square(file: 2, rank: 3),
+                piece: ChessPiece(color: W, type: .bishop), moveNumber: 3, color: W)
+        addMove(san: "Bc5", from: Square(file: 5, rank: 7), to: Square(file: 2, rank: 4),
+                piece: ChessPiece(color: B, type: .bishop), moveNumber: 3, color: B)
+        addMove(san: "c3", from: Square(file: 2, rank: 1), to: Square(file: 2, rank: 2),
+                piece: ChessPiece(color: W, type: .pawn), moveNumber: 4, color: W)
+        addMove(san: "Nf6", from: Square(file: 6, rank: 7), to: Square(file: 5, rank: 5),
+                piece: ChessPiece(color: B, type: .knight), moveNumber: 4, color: B)
+
+        var annotations: [Int: MoveAnnotation] = [:]
+        annotations[0] = MoveAnnotation(classification: .great, explanation: "Classic center control.", evalAfter: 0.2)
+        annotations[1] = MoveAnnotation(classification: .great, explanation: "Matching in the center.", evalAfter: 0.2)
+        annotations[2] = MoveAnnotation(classification: .great, explanation: "Knight development.", evalAfter: 0.3)
+        annotations[3] = MoveAnnotation(classification: .great, explanation: "Defending e5.", evalAfter: 0.3)
+        annotations[4] = MoveAnnotation(classification: .great, explanation: "The Italian Game! Targeting f7.", evalAfter: 0.3)
+        annotations[5] = MoveAnnotation(classification: .great, explanation: "Mirror development — solid!", evalAfter: 0.2)
+        annotations[6] = MoveAnnotation(classification: .good, explanation: "Preparing d4.", evalAfter: 0.25)
+        annotations[7] = MoveAnnotation(classification: .great, explanation: "Attacking e4 while developing.", evalAfter: 0.2)
+
+        let cal = Calendar.current
+        let oneWeekAgo = cal.date(byAdding: .day, value: -7, to: Date())
+
+        return Game(
+            white: "You",
+            black: "Sofia R.",
+            event: "State Championship",
+            round: "1",
+            date: oneWeekAgo,
+            result: .draw,
+            opening: "Italian Game",
+            playerColor: .white,
+            moves: moves,
+            annotations: annotations,
+            positions: positions
+        )
+    }()
+
+    static let sampleGame4: Game = {
+        // A Queen's Gambit game where the player won as Black
+        var positions: [BoardPosition] = [.initial]
+        var moves: [ChessMove] = []
+        var pos = BoardPosition.initial
+
+        func addMove(
+            san: String, from: Square, to: Square, piece: ChessPiece,
+            captured: ChessPiece? = nil, isCastle: Bool = false,
+            moveNumber: Int, color: PieceColor
+        ) {
+            let move = ChessMove(
+                san: san, from: from, to: to, piece: piece,
+                captured: captured, isCastle: isCastle,
+                moveNumber: moveNumber, color: color
+            )
+            moves.append(move)
+            pos = pos.applyingMove(move)
+            positions.append(pos)
+        }
+
+        let W = PieceColor.white
+        let B = PieceColor.black
+
+        // 1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. Nf3 O-O
+        addMove(san: "d4", from: Square(file: 3, rank: 1), to: Square(file: 3, rank: 3),
+                piece: ChessPiece(color: W, type: .pawn), moveNumber: 1, color: W)
+        addMove(san: "d5", from: Square(file: 3, rank: 6), to: Square(file: 3, rank: 4),
+                piece: ChessPiece(color: B, type: .pawn), moveNumber: 1, color: B)
+        addMove(san: "c4", from: Square(file: 2, rank: 1), to: Square(file: 2, rank: 3),
+                piece: ChessPiece(color: W, type: .pawn), moveNumber: 2, color: W)
+        addMove(san: "e6", from: Square(file: 4, rank: 6), to: Square(file: 4, rank: 5),
+                piece: ChessPiece(color: B, type: .pawn), moveNumber: 2, color: B)
+        addMove(san: "Nc3", from: Square(file: 1, rank: 0), to: Square(file: 2, rank: 2),
+                piece: ChessPiece(color: W, type: .knight), moveNumber: 3, color: W)
+        addMove(san: "Nf6", from: Square(file: 6, rank: 7), to: Square(file: 5, rank: 5),
+                piece: ChessPiece(color: B, type: .knight), moveNumber: 3, color: B)
+        addMove(san: "Bg5", from: Square(file: 2, rank: 0), to: Square(file: 6, rank: 4),
+                piece: ChessPiece(color: W, type: .bishop), moveNumber: 4, color: W)
+        addMove(san: "Be7", from: Square(file: 5, rank: 7), to: Square(file: 4, rank: 6),
+                piece: ChessPiece(color: B, type: .bishop), moveNumber: 4, color: B)
+        addMove(san: "Nf3", from: Square(file: 6, rank: 0), to: Square(file: 5, rank: 2),
+                piece: ChessPiece(color: W, type: .knight), moveNumber: 5, color: W)
+        addMove(san: "O-O", from: Square(file: 4, rank: 7), to: Square(file: 6, rank: 7),
+                piece: ChessPiece(color: B, type: .king), isCastle: true, moveNumber: 5, color: B)
+
+        var annotations: [Int: MoveAnnotation] = [:]
+        annotations[0] = MoveAnnotation(classification: .great, explanation: "Controlling the center with d4.", evalAfter: 0.2)
+        annotations[1] = MoveAnnotation(classification: .great, explanation: "Meeting d4 with d5 — solid!", evalAfter: 0.2)
+        annotations[2] = MoveAnnotation(classification: .great, explanation: "The Queen's Gambit!", evalAfter: 0.3)
+        annotations[3] = MoveAnnotation(classification: .great, explanation: "The Queen's Gambit Declined — very solid choice.", evalAfter: 0.25)
+        annotations[4] = MoveAnnotation(classification: .great, explanation: "Developing the knight.", evalAfter: 0.3)
+        annotations[5] = MoveAnnotation(classification: .great, explanation: "Natural development.", evalAfter: 0.25)
+        annotations[6] = MoveAnnotation(classification: .good, explanation: "Pinning the knight.", evalAfter: 0.3)
+        annotations[7] = MoveAnnotation(classification: .great, explanation: "Breaking the pin and preparing to castle.", evalAfter: 0.2)
+        annotations[8] = MoveAnnotation(classification: .great, explanation: "Developing the last minor piece.", evalAfter: 0.25)
+        annotations[9] = MoveAnnotation(classification: .brilliant,
+                                        explanation: "Castling at just the right moment! Your king is safe and your rook joins the fight.",
+                                        evalAfter: 0.1)
+
+        let cal = Calendar.current
+        let oneWeekAgo = cal.date(byAdding: .day, value: -8, to: Date())
+
+        return Game(
+            white: "Liam T.",
+            black: "You",
+            event: "State Championship",
+            round: "2",
+            date: oneWeekAgo,
+            result: .blackWins,
+            opening: "Queen's Gambit Declined",
+            playerColor: .black,
+            moves: moves,
+            annotations: annotations,
+            positions: positions
+        )
+    }()
+
+    /// All sample games for the Home screen
+    static let allGames: [Game] = [sampleGame, sampleGame2, sampleGame3, sampleGame4]
+
+    /// Unique tournament names from sample data
+    static let tournaments: [String] = {
+        let events = allGames.compactMap { $0.event }
+        return Array(Set(events)).sorted()
     }()
 }
