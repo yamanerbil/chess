@@ -29,21 +29,27 @@ struct GameReviewScreen: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
-        .navigationTitle("vs. \(viewModel.game.opponentName)")
+        .background(DesignSystem.Colors.backgroundLight)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 6) {
-                    Text("vs. \(viewModel.game.opponentName)")
-                        .font(DesignSystem.Fonts.headline(17))
+                VStack(spacing: 2) {
+                    Text(viewModel.titleText)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .textCase(.uppercase)
 
-                    HStack(spacing: 3) {
-                        Image(systemName: viewModel.resultIcon)
-                            .font(.system(size: 12))
-                        Text(viewModel.resultText)
-                            .font(DesignSystem.Fonts.caption(13))
-                    }
-                    .foregroundColor(viewModel.resultColor)
+                    Text(viewModel.subtitleText)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    // Settings placeholder
+                } label: {
+                    Image(systemName: "gearshape")
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
                 }
             }
         }
@@ -53,14 +59,15 @@ struct GameReviewScreen: View {
 
     private var boardTab: some View {
         ScrollView {
-            VStack(spacing: 12) {
-                // Chess board with swipe gestures
+            VStack(spacing: 14) {
+                // Chess board with swipe gestures and shadow
                 ChessBoardView(
                     position: viewModel.currentPosition,
                     playerColor: viewModel.game.playerColor,
                     lastMoveFrom: viewModel.lastMove?.from,
                     lastMoveTo: viewModel.lastMove?.to
                 )
+                .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
                 .gesture(
                     DragGesture(minimumDistance: swipeThreshold)
                         .onEnded { value in
@@ -72,9 +79,21 @@ struct GameReviewScreen: View {
                             }
                         }
                 )
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 12)
 
-                // Navigation bar
+                // Coaching annotation card
+                MoveAnnotationCard(
+                    move: viewModel.lastMove,
+                    annotation: viewModel.currentAnnotation,
+                    moveIndex: viewModel.currentMoveIndex
+                )
+                .padding(.horizontal, 16)
+
+                // Horizontal move list chips
+                moveChipList
+                    .padding(.horizontal, 16)
+
+                // Navigation bar with play button
                 MoveNavigationBar(
                     currentMoveIndex: viewModel.currentMoveIndex,
                     totalMoves: viewModel.game.moves.count,
@@ -85,22 +104,72 @@ struct GameReviewScreen: View {
                 )
                 .padding(.horizontal, 16)
 
-                // Eval bar
-                EvalBarView(evaluation: viewModel.currentEval)
-                    .padding(.horizontal, 16)
-
-                // Move annotation card
-                MoveAnnotationCard(
-                    move: viewModel.lastMove,
-                    annotation: viewModel.currentAnnotation,
-                    moveIndex: viewModel.currentMoveIndex
-                )
-                .padding(.horizontal, 16)
-
-                Spacer(minLength: 16)
+                Spacer(minLength: 8)
             }
             .padding(.top, 8)
         }
+    }
+
+    // MARK: - Move Chip List
+
+    private var moveChipList: some View {
+        VStack(spacing: 8) {
+            // Header
+            HStack {
+                Text("MOVE LIST")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                Spacer()
+                Button {
+                    viewModel.selectedTab = .moves
+                } label: {
+                    Text("VIEW ALL")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(DesignSystem.Colors.primary)
+                }
+            }
+
+            // Scrollable chips
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(viewModel.game.moves.enumerated()), id: \.offset) { index, move in
+                            let chipIndex = index + 1
+                            moveChip(move: move, index: chipIndex)
+                                .id(chipIndex)
+                        }
+                    }
+                }
+                .onChange(of: viewModel.currentMoveIndex) { _, newValue in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(newValue, anchor: .center)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func moveChip(move: ChessMove, index: Int) -> some View {
+        let isSelected = viewModel.currentMoveIndex == index
+        let chipText = move.color == .white
+            ? "\(move.moveNumber). \(move.san)"
+            : "\(move.moveNumber)... \(move.san)"
+
+        Button {
+            viewModel.goToMove(index)
+        } label: {
+            Text(chipText)
+                .font(DesignSystem.Fonts.moveNotation(12))
+                .foregroundColor(isSelected ? .white : .primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? DesignSystem.Colors.primary : Color.gray.opacity(0.1))
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Moves Tab
@@ -112,7 +181,8 @@ struct GameReviewScreen: View {
                 position: viewModel.currentPosition,
                 playerColor: viewModel.game.playerColor,
                 lastMoveFrom: viewModel.lastMove?.from,
-                lastMoveTo: viewModel.lastMove?.to
+                lastMoveTo: viewModel.lastMove?.to,
+                showCoordinates: false
             )
             .frame(height: 200)
             .padding(.horizontal, 60)

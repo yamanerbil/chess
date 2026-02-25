@@ -49,6 +49,19 @@ final class GameReviewViewModel {
     /// Whether we're at the last move
     var isAtEnd: Bool { currentMoveIndex >= game.moves.count }
 
+    /// Navigation bar title (e.g. "Round 3 Analysis")
+    var titleText: String {
+        if let round = game.round {
+            return "Round \(round) Analysis"
+        }
+        return "Game Analysis"
+    }
+
+    /// Navigation bar subtitle (e.g. "vs. Alex R. (1450)")
+    var subtitleText: String {
+        "vs. \(game.opponentName)"
+    }
+
     /// Result display text
     var resultText: String {
         if game.playerWon {

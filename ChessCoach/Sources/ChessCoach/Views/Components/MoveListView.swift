@@ -105,8 +105,9 @@ struct MoveListView: View {
             HStack(spacing: 4) {
                 // Classification icon
                 if let annotation = annotation {
-                    Text(annotation.classification.icon)
-                        .font(.system(size: 12))
+                    Image(systemName: annotation.classification.icon)
+                        .font(.system(size: 10))
+                        .foregroundColor(annotation.classification.color)
                 }
 
                 Text(move.san)
