@@ -23,7 +23,7 @@ public struct MainTabView: View {
         return Array(Set(events)).sorted()
     }
 
-    var body: some View {
+    public var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
                 // Home tab
