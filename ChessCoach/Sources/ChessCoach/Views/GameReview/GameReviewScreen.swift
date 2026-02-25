@@ -81,6 +81,10 @@ struct GameReviewScreen: View {
                 )
                 .padding(.horizontal, 12)
 
+                // Horizontal move list chips
+                moveChipList
+                    .padding(.horizontal, 16)
+
                 // Coaching annotation card
                 MoveAnnotationCard(
                     move: viewModel.lastMove,
@@ -88,10 +92,6 @@ struct GameReviewScreen: View {
                     moveIndex: viewModel.currentMoveIndex
                 )
                 .padding(.horizontal, 16)
-
-                // Horizontal move list chips
-                moveChipList
-                    .padding(.horizontal, 16)
 
                 // Navigation bar with play button
                 MoveNavigationBar(
@@ -152,22 +152,29 @@ struct GameReviewScreen: View {
     @ViewBuilder
     private func moveChip(move: ChessMove, index: Int) -> some View {
         let isSelected = viewModel.currentMoveIndex == index
-        let chipText = move.color == .white
-            ? "\(move.moveNumber). \(move.san)"
-            : "\(move.moveNumber)... \(move.san)"
+        let moveNum = move.color == .white
+            ? "\(move.moveNumber)."
+            : "\(move.moveNumber)..."
 
         Button {
             viewModel.goToMove(index)
         } label: {
-            Text(chipText)
-                .font(DesignSystem.Fonts.moveNotation(12))
-                .foregroundColor(isSelected ? .white : .primary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? DesignSystem.Colors.primary : Color.gray.opacity(0.1))
-                )
+            HStack(spacing: 3) {
+                Text(moveNum)
+                    .font(DesignSystem.Fonts.moveNotation(12))
+                if move.piece.type != .pawn {
+                    PieceIconView(piece: move.piece, size: 14)
+                }
+                Text(move.san.dropPiecePrefix())
+                    .font(DesignSystem.Fonts.moveNotation(12))
+            }
+            .foregroundColor(isSelected ? .white : .primary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? DesignSystem.Colors.primary : Color.gray.opacity(0.1))
+            )
         }
         .buttonStyle(.plain)
     }

@@ -1,5 +1,14 @@
 import Foundation
 
+extension String {
+    /// Strips the leading piece letter (K, Q, R, B, N) from a SAN string.
+    /// Pawn moves (e.g. "e4") and castling ("O-O") are returned unchanged.
+    func dropPiecePrefix() -> String {
+        guard let first = first, "KQRBN".contains(first) else { return self }
+        return String(dropFirst())
+    }
+}
+
 /// Represents a single chess move
 struct ChessMove: Identifiable, Equatable, Codable {
     let id: UUID
@@ -27,6 +36,12 @@ struct ChessMove: Identifiable, Equatable, Codable {
     let moveNumber: Int
     /// Which color made this move
     let color: PieceColor
+
+    /// SAN text with the leading piece letter removed (for use alongside a piece icon).
+    /// Pawn moves and castling are returned unchanged.
+    var sanWithoutPiecePrefix: String {
+        san.dropPiecePrefix()
+    }
 
     init(
         id: UUID = UUID(),

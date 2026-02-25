@@ -110,7 +110,11 @@ struct MoveListView: View {
                         .foregroundColor(annotation.classification.color)
                 }
 
-                Text(move.san)
+                // Piece icon + SAN text
+                if move.piece.type != .pawn {
+                    PieceIconView(piece: move.piece, size: 16)
+                }
+                Text(move.sanWithoutPiecePrefix)
                     .font(DesignSystem.Fonts.moveNotation(14))
                     .foregroundColor(isSelected ? .white : .primary)
             }

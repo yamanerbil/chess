@@ -60,3 +60,19 @@ enum DesignSystem {
         static let minTouchTarget: CGFloat = 44
     }
 }
+
+/// Renders a chess piece symbol at a consistent, uniform size.
+/// Wraps the Unicode glyph in a fixed frame so all piece types
+/// (king, pawn, knight, etc.) appear the same visual size.
+struct PieceIconView: View {
+    let piece: ChessPiece
+    let size: CGFloat
+
+    var body: some View {
+        Text(piece.symbol)
+            .font(.system(size: size * 0.85))
+            .minimumScaleFactor(0.7)
+            .frame(width: size, height: size)
+            .lineLimit(1)
+    }
+}
