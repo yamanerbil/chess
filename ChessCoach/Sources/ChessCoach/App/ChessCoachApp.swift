@@ -11,10 +11,12 @@ struct ChessCoachApp: App {
 }
 
 /// Root tab navigation for the app
-struct MainTabView: View {
+public struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var games: [Game] = SampleData.allGames
     @State private var showScanner = false
+
+    public init() {}
 
     private var tournaments: [String] {
         let events = games.compactMap { $0.event }
