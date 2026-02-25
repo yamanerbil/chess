@@ -150,8 +150,8 @@ struct BoardPositionTests {
         }
         let moves = pos.legalMoves()
         let kingMoves = moves.filter { $0.piece.type == .king }
-        // King should not be able to move to any square in the a-file rook's range on rank 1-2
-        let illegalSquares = ["d2", "e2", "f2", "d1"]
+        // Rook on a2 attacks all of rank 2 — king can't go to d2, e2, f2
+        let illegalSquares = ["d2", "e2", "f2"]
         for sq in illegalSquares {
             #expect(!kingMoves.contains { $0.to.notation == sq },
                     "King should not be able to move to \(sq)")
