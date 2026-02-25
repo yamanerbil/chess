@@ -7,11 +7,12 @@ final class GameReviewViewModel {
     let game: Game
 
     /// Current move index: 0 = starting position, 1 = after first move, etc.
-    var currentMoveIndex: Int = 0 {
-        didSet {
-            currentMoveIndex = max(0, min(currentMoveIndex, game.moves.count))
-        }
+    /// Uses a backing store to avoid infinite recursion with @Observable's didSet.
+    var currentMoveIndex: Int {
+        get { _currentMoveIndex }
+        set { _currentMoveIndex = max(0, min(newValue, game.moves.count)) }
     }
+    private var _currentMoveIndex: Int = 0
 
     /// Which tab is selected
     var selectedTab: ReviewTab = .board
