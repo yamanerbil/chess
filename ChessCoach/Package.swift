@@ -16,7 +16,11 @@ let package = Package(
     targets: [
         .target(
             name: "ChessCoach",
-            path: "Sources/ChessCoach"
+            path: "Sources/ChessCoach",
+            exclude: ["Resources"],
+            swiftSettings: [
+                .define("SPM_BUILD")
+            ]
         ),
         .testTarget(
             name: "ChessCoachTests",

@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// App entry point — uncomment @main when building as an app target
-// @main
+/// App entry point
+#if !SPM_BUILD
+@main
+#endif
 struct ChessCoachApp: App {
     var body: some Scene {
         WindowGroup {
