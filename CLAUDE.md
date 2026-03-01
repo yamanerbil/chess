@@ -4,7 +4,9 @@ iOS app helping kids in chess tournaments replay games
 and get AI coaching feedback.
 
 ## Key Docs
-- Technical spec: SPEC.md (root of repo)
+- UI/UX spec: SPEC.md (screens, wireframes, design system, gestures)
+- Technical spec: TECHNICAL-SPEC.md (architecture, data models, AI prompts, implementation phases)
+- Read both before implementing any new feature
 
 ## Stack
 - SwiftUI (iOS 17+)
@@ -18,7 +20,8 @@ and get AI coaching feedback.
 - AI coaching must be calibrated to kid's age and rating
 - Stockfish on-device; Claude API calls are lazy-loaded and cached
 - Lead with positives — even when explaining mistakes
+- Follow the design system in SPEC.md (colors, typography, animations)
 
 ## Current Status
-- Home, Progress, Settings, Scanner, and Coaching views exist in ChessCoach/
-- Next: [whatever you want to tackle next]
+- Home, Progress, Settings, Scanner, and Coaching views started
+- Next: [your next priority]
