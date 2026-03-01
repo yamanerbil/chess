@@ -9,7 +9,8 @@ struct ScannerScreen: View {
     @State private var scannedMoves: [ScannedMove] = []
 
     let knownTournaments: [String]
-    let onGameCreated: (GameMetadata) -> Void
+    /// Callback with validated SAN move strings and game metadata
+    let onGameCreated: ([String], GameMetadata) -> Void
 
     var body: some View {
         VStack(spacing: 24) {
@@ -130,7 +131,8 @@ struct ScannerScreen: View {
             GameMetadataScreen(
                 knownTournaments: knownTournaments,
                 onSubmit: { metadata in
-                    onGameCreated(metadata)
+                    let sanMoves = scannedMoves.map { $0.san }
+                    onGameCreated(sanMoves, metadata)
                     dismiss()
                 }
             )
@@ -140,6 +142,6 @@ struct ScannerScreen: View {
 
 #Preview {
     NavigationStack {
-        ScannerScreen(knownTournaments: ["Spring Open"]) { _ in }
+        ScannerScreen(knownTournaments: ["Spring Open"]) { _, _ in }
     }
 }
