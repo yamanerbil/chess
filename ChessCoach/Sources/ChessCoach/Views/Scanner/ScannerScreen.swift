@@ -6,6 +6,7 @@ struct ScannerScreen: View {
     @State private var showProcessing = false
     @State private var showCorrection = false
     @State private var showMetadata = false
+    @State private var showManualEntry = false
     @State private var scannedMoves: [ScannedMove] = []
 
     let knownTournaments: [String]
@@ -86,9 +87,9 @@ struct ScannerScreen: View {
                 }
             }
 
-            // Manual entry — skip scanning, go straight to metadata
+            // Manual entry — type moves from a paper scoresheet
             Button {
-                showMetadata = true
+                showManualEntry = true
             } label: {
                 Text("Enter moves manually")
                     .font(DesignSystem.Fonts.body(15))
@@ -105,12 +106,21 @@ struct ScannerScreen: View {
                 Button("Cancel") { dismiss() }
             }
         }
-        // Flow: Scanner → Processing → Correction → Metadata
+        // Flow A: Scanner → Processing → Correction → Metadata
         .navigationDestination(isPresented: $showProcessing) {
             ProcessingScreen { moves in
                 scannedMoves = moves
                 showProcessing = false
-                // Short delay to let navigation settle, then show correction
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showCorrection = true
+                }
+            }
+        }
+        // Flow B: Manual Entry → Correction → Metadata
+        .navigationDestination(isPresented: $showManualEntry) {
+            ManualMoveEntryScreen { moves in
+                scannedMoves = moves
+                showManualEntry = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     showCorrection = true
                 }
