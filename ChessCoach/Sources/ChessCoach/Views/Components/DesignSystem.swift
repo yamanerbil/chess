@@ -61,18 +61,51 @@ enum DesignSystem {
     }
 }
 
-/// Renders a chess piece symbol at a consistent, uniform size.
-/// Wraps the Unicode glyph in a fixed frame so all piece types
-/// (king, pawn, knight, etc.) appear the same visual size.
+/// Renders a chess piece in "club" style — white pieces have a white fill
+/// with a black outline, black pieces are solid dark with a subtle outline.
+/// Uses the filled Unicode symbols for consistent sizing across all piece types.
 struct PieceIconView: View {
     let piece: ChessPiece
     let size: CGFloat
 
+    /// All pieces use the filled (black) Unicode symbols for consistent shape
+    private var symbol: String {
+        switch piece.type {
+        case .king: return "\u{265A}"   // ♚
+        case .queen: return "\u{265B}"  // ♛
+        case .rook: return "\u{265C}"   // ♜
+        case .bishop: return "\u{265D}" // ♝
+        case .knight: return "\u{265E}" // ♞
+        case .pawn: return "\u{265F}\u{FE0E}" // ♟︎ with text variant selector
+        }
+    }
+
     var body: some View {
-        Text(piece.symbol)
-            .font(.system(size: size * 0.85))
-            .minimumScaleFactor(0.7)
-            .frame(width: size, height: size)
-            .lineLimit(1)
+        ZStack {
+            if piece.color == .white {
+                // Black outline layer (rendered slightly larger via shadows)
+                Text(symbol)
+                    .font(.system(size: size * 0.85))
+                    .foregroundColor(.black)
+                    .shadow(color: .black, radius: 0, x: 0.5, y: 0)
+                    .shadow(color: .black, radius: 0, x: -0.5, y: 0)
+                    .shadow(color: .black, radius: 0, x: 0, y: 0.5)
+                    .shadow(color: .black, radius: 0, x: 0, y: -0.5)
+
+                // White fill layer on top
+                Text(symbol)
+                    .font(.system(size: size * 0.82))
+                    .foregroundColor(.white)
+            } else {
+                // Solid dark piece with subtle outline
+                Text(symbol)
+                    .font(.system(size: size * 0.85))
+                    .foregroundColor(Color(red: 0.15, green: 0.15, blue: 0.15))
+                    .shadow(color: .black.opacity(0.5), radius: 0, x: 0.5, y: 0.5)
+            }
+        }
+        .minimumScaleFactor(0.7)
+        .frame(width: size, height: size)
+        .lineLimit(1)
     }
 }

@@ -33,43 +33,17 @@ public struct MainTabView: View {
     }
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
-                // Home tab
-                NavigationStack {
-                    HomeScreen(games: games)
-                        .navigationDestination(for: UUID.self) { gameId in
-                            if let game = games.first(where: { $0.id == gameId }) {
-                                GameReviewScreen(viewModel: GameReviewViewModel(game: game))
-                            }
+        TabView(selection: $selectedTab) {
+            // Home tab
+            NavigationStack {
+                HomeScreen(games: games)
+                    .navigationDestination(for: UUID.self) { gameId in
+                        if let game = games.first(where: { $0.id == gameId }) {
+                            GameReviewScreen(viewModel: GameReviewViewModel(game: game))
                         }
-                }
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(0)
-
-                // Progress tab
-                NavigationStack {
-                    ProgressScreen(games: games)
-                }
-                .tabItem {
-                    Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .tag(1)
-
-                // Settings tab
-                NavigationStack {
-                    SettingsScreen()
-                }
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
-                }
-                .tag(2)
+                    }
             }
-
-            // Floating Scan Game button (visible on Home tab)
-            if selectedTab == 0 {
+            .overlay(alignment: .bottom) {
                 Button {
                     showScanner = true
                 } label: {
@@ -89,6 +63,28 @@ public struct MainTabView: View {
                 }
                 .padding(.bottom, 60)
             }
+            .tabItem {
+                Label("Home", systemImage: "house.fill")
+            }
+            .tag(0)
+
+            // Progress tab
+            NavigationStack {
+                ProgressScreen(games: games)
+            }
+            .tabItem {
+                Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
+            }
+            .tag(1)
+
+            // Settings tab
+            NavigationStack {
+                SettingsScreen()
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gearshape.fill")
+            }
+            .tag(2)
         }
         .sheet(isPresented: $showScanner) {
             NavigationStack {

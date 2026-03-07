@@ -106,7 +106,6 @@ struct ChessBoardView: View {
     @ViewBuilder
     private func pieceView(piece: ChessPiece, size: CGFloat) -> some View {
         PieceIconView(piece: piece, size: size * 0.85)
-            .shadow(color: .black.opacity(0.3), radius: 1, x: 0.5, y: 0.5)
     }
 }
 
