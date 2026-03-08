@@ -251,7 +251,8 @@ struct CoachingReportView: View {
                     onJumpToMove(best.index + 1)
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
-                        Text(best.annotation.classification.icon)
+                        Image(systemName: best.annotation.classification.icon)
+                            .foregroundColor(best.annotation.classification.color)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(move.moveNumber). \(move.color == .black ? "..." : "")\(move.san)")
                                 .font(DesignSystem.Fonts.moveNotation(14))
@@ -281,7 +282,8 @@ struct CoachingReportView: View {
                     onJumpToMove(worst.index + 1)
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
-                        Text(worst.annotation.classification.icon)
+                        Image(systemName: worst.annotation.classification.icon)
+                            .foregroundColor(worst.annotation.classification.color)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(move.moveNumber). \(move.color == .black ? "..." : "")\(move.san)")
                                 .font(DesignSystem.Fonts.moveNotation(14))

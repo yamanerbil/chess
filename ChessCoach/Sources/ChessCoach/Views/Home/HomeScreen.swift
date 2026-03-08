@@ -43,7 +43,7 @@ struct HomeScreen: View {
             if filteredGames.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    Image(systemName: "chess.pawn")
+                    Text("♟")
                         .font(.system(size: 48))
                         .foregroundColor(DesignSystem.Colors.secondaryText)
                     Text("No games yet")

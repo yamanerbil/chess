@@ -1,64 +1,49 @@
 import SwiftUI
+import SwiftData
 
-/// App entry point — uncomment @main when building as an app target
-// @main
+/// App entry point
+#if !SPM_BUILD
+@main
+#endif
 struct ChessCoachApp: App {
     var body: some Scene {
         WindowGroup {
             MainTabView()
         }
+        .modelContainer(for: [GameRecord.self, PlayerProfile.self])
     }
 }
 
 /// Root tab navigation for the app
-struct MainTabView: View {
+public struct MainTabView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \GameRecord.createdAt, order: .reverse) private var gameRecords: [GameRecord]
     @State private var selectedTab = 0
-    @State private var games: [Game] = SampleData.allGames
     @State private var showScanner = false
+
+    public init() {}
+
+    private var games: [Game] {
+        gameRecords.compactMap { $0.toGame() }
+    }
 
     private var tournaments: [String] {
         let events = games.compactMap { $0.event }
         return Array(Set(events)).sorted()
     }
 
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
-                // Home tab
-                NavigationStack {
-                    HomeScreen(games: games)
-                        .navigationDestination(for: UUID.self) { gameId in
-                            if let game = games.first(where: { $0.id == gameId }) {
-                                GameReviewScreen(viewModel: GameReviewViewModel(game: game))
-                            }
+    public var body: some View {
+        TabView(selection: $selectedTab) {
+            // Home tab
+            NavigationStack {
+                HomeScreen(games: games)
+                    .navigationDestination(for: UUID.self) { gameId in
+                        if let game = games.first(where: { $0.id == gameId }) {
+                            GameReviewScreen(viewModel: GameReviewViewModel(game: game))
                         }
-                }
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(0)
-
-                // Progress tab
-                NavigationStack {
-                    ProgressScreen(games: games)
-                }
-                .tabItem {
-                    Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .tag(1)
-
-                // Settings tab
-                NavigationStack {
-                    SettingsScreen()
-                }
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
-                }
-                .tag(2)
+                    }
             }
-
-            // Floating Scan Game button (visible on Home tab)
-            if selectedTab == 0 {
+            .overlay(alignment: .bottom) {
                 Button {
                     showScanner = true
                 } label: {
@@ -78,21 +63,62 @@ struct MainTabView: View {
                 }
                 .padding(.bottom, 60)
             }
+            .tabItem {
+                Label("Home", systemImage: "house.fill")
+            }
+            .tag(0)
+
+            // Progress tab
+            NavigationStack {
+                ProgressScreen(games: games)
+            }
+            .tabItem {
+                Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
+            }
+            .tag(1)
+
+            // Settings tab
+            NavigationStack {
+                SettingsScreen()
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gearshape.fill")
+            }
+            .tag(2)
         }
         .sheet(isPresented: $showScanner) {
             NavigationStack {
-                ScannerScreen(knownTournaments: tournaments) { _ in
-                    // When scanner is fully implemented, this will create a real game.
-                    // For now just dismiss.
+                ScannerScreen(knownTournaments: tournaments) { sanMoves, metadata in
+                    saveGame(sanMoves: sanMoves, metadata: metadata)
                     showScanner = false
                 }
             }
         }
+        .onAppear {
+            seedSampleDataIfEmpty()
+        }
+    }
+
+    private func saveGame(sanMoves: [String], metadata: GameMetadata) {
+        guard let game = Game.fromSANList(sanMoves: sanMoves, metadata: metadata) else { return }
+        let record = GameRecord(game: game)
+        modelContext.insert(record)
+        try? modelContext.save()
+    }
+
+    private func seedSampleDataIfEmpty() {
+        guard gameRecords.isEmpty else { return }
+        for game in SampleData.allGames {
+            let record = GameRecord(game: game)
+            modelContext.insert(record)
+        }
+        try? modelContext.save()
     }
 }
 
 #Preview("Main App") {
     MainTabView()
+        .modelContainer(for: [GameRecord.self, PlayerProfile.self], inMemory: true)
 }
 
 #Preview("Game Review") {

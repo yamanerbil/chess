@@ -105,11 +105,16 @@ struct MoveListView: View {
             HStack(spacing: 4) {
                 // Classification icon
                 if let annotation = annotation {
-                    Text(annotation.classification.icon)
-                        .font(.system(size: 12))
+                    Image(systemName: annotation.classification.icon)
+                        .font(.system(size: 10))
+                        .foregroundColor(annotation.classification.color)
                 }
 
-                Text(move.san)
+                // Piece icon + SAN text
+                if move.piece.type != .pawn {
+                    PieceIconView(piece: move.piece, size: 16)
+                }
+                Text(move.sanWithoutPiecePrefix)
                     .font(DesignSystem.Fonts.moveNotation(14))
                     .foregroundColor(isSelected ? .white : .primary)
             }

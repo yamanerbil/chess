@@ -99,4 +99,46 @@ struct Game: Identifiable, Codable {
         self.annotations = annotations
         self.positions = positions
     }
+
+    /// Create a Game from a list of validated SAN strings and game metadata.
+    /// Parses each SAN against the current position to produce full ChessMove objects.
+    static func fromSANList(
+        sanMoves: [String],
+        metadata: GameMetadata
+    ) -> Game? {
+        var positions: [BoardPosition] = [.initial]
+        var moves: [ChessMove] = []
+        var currentPosition = BoardPosition.initial
+
+        for san in sanMoves {
+            guard let move = currentPosition.legalMove(forSAN: san) else {
+                return nil
+            }
+            moves.append(move)
+            currentPosition = currentPosition.applyingMove(move)
+            positions.append(currentPosition)
+        }
+
+        let whiteName: String
+        let blackName: String
+        if metadata.playerColor == .white {
+            whiteName = "You"
+            blackName = metadata.opponentName
+        } else {
+            whiteName = metadata.opponentName
+            blackName = "You"
+        }
+
+        return Game(
+            white: whiteName,
+            black: blackName,
+            event: metadata.tournament,
+            round: metadata.round,
+            date: Date(),
+            result: metadata.result,
+            playerColor: metadata.playerColor,
+            moves: moves,
+            positions: positions
+        )
+    }
 }

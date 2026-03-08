@@ -20,14 +20,38 @@ enum MoveClassification: String, Codable, CaseIterable {
         }
     }
 
+    /// Friendly coaching title shown in the annotation card
+    var friendlyTitle: String {
+        switch self {
+        case .brilliant: return "Brilliant Move!"
+        case .great: return "Great Idea!"
+        case .good: return "Solid Move"
+        case .inaccuracy: return "Small Slip"
+        case .mistake: return "Needs Work"
+        case .blunder: return "Watch Out!"
+        }
+    }
+
+    /// Category tag for the annotation card badge
+    var category: String {
+        switch self {
+        case .brilliant: return "Tactical"
+        case .great: return "Tactical"
+        case .good: return "Positional"
+        case .inaccuracy: return "Positional"
+        case .mistake: return "Strategic"
+        case .blunder: return "Critical"
+        }
+    }
+
     var icon: String {
         switch self {
-        case .brilliant: return "✨"
-        case .great: return "✅"
-        case .good: return "👍"
-        case .inaccuracy: return "🤔"
-        case .mistake: return "❌"
-        case .blunder: return "💥"
+        case .brilliant: return "sparkles"
+        case .great: return "star.fill"
+        case .good: return "checkmark.circle.fill"
+        case .inaccuracy: return "exclamationmark.triangle.fill"
+        case .mistake: return "xmark.circle.fill"
+        case .blunder: return "bolt.fill"
         }
     }
 

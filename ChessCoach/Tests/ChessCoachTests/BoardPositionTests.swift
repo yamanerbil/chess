@@ -120,6 +120,112 @@ struct BoardPositionTests {
         #expect(game.positions.count == 28) // initial + 27 moves
         #expect(game.positions[0] == BoardPosition.initial)
     }
+
+    // MARK: - Legal Move Generation Tests
+
+    @Test("Initial position has 20 legal moves")
+    func initialLegalMoves() {
+        let pos = BoardPosition.initial
+        let moves = pos.legalMoves()
+        // 16 pawn moves (8 pawns × 2 options each) + 4 knight moves (2 knights × 2 options each)
+        #expect(moves.count == 20)
+    }
+
+    @Test("Legal moves include e4 from starting position")
+    func e4IsLegal() {
+        let pos = BoardPosition.initial
+        #expect(pos.isLegalMove(san: "e4") == true)
+        #expect(pos.isLegalMove(san: "e5") == false) // e5 not reachable from e2
+        #expect(pos.isLegalMove(san: "Nf3") == true)
+        #expect(pos.isLegalMove(san: "Ke2") == false) // King can't move to e2 (blocked by pawn)
+    }
+
+    @Test("King cannot move into check")
+    func kingCannotMoveIntoCheck() {
+        // King on e1, opponent rook on a2 — king can't go to d1, d2, e2, f2
+        let fen = "8/8/8/8/8/8/r7/4K3 w - - 0 1"
+        guard let pos = BoardPosition.fromFEN(fen) else {
+            Issue.record("Failed to parse FEN")
+            return
+        }
+        let moves = pos.legalMoves()
+        let kingMoves = moves.filter { $0.piece.type == .king }
+        // Rook on a2 attacks all of rank 2 — king can't go to d2, e2, f2
+        let illegalSquares = ["d2", "e2", "f2"]
+        for sq in illegalSquares {
+            #expect(!kingMoves.contains { $0.to.notation == sq },
+                    "King should not be able to move to \(sq)")
+        }
+    }
+
+    @Test("Castling is legal when path is clear")
+    func castlingLegal() {
+        let fen = "r1bqk2r/ppppbppp/2n2n2/4p3/4P3/5N2/PPPPBPPP/RNBQK2R w KQkq - 4 4"
+        guard let pos = BoardPosition.fromFEN(fen) else {
+            Issue.record("Failed to parse FEN")
+            return
+        }
+        #expect(pos.isLegalMove(san: "O-O") == true)
+    }
+
+    @Test("Castling is illegal when path is blocked")
+    func castlingBlocked() {
+        // Starting position — both sides have pieces between king and rook
+        let pos = BoardPosition.initial
+        #expect(pos.isLegalMove(san: "O-O") == false)
+        #expect(pos.isLegalMove(san: "O-O-O") == false)
+    }
+
+    @Test("isInCheck detects check correctly")
+    func checkDetection() {
+        // White king on e1, black queen on e3 — white is in check
+        let fen = "8/8/8/8/8/4q3/8/4K3 w - - 0 1"
+        guard let pos = BoardPosition.fromFEN(fen) else {
+            Issue.record("Failed to parse FEN")
+            return
+        }
+        #expect(pos.isInCheck(.white) == true)
+        #expect(pos.isInCheck(.black) == false)
+    }
+
+    @Test("SAN generation includes piece prefix and disambiguation")
+    func sanGeneration() {
+        // Position after 1.e4 e5 2.Nf3 — verify Nf3 is in the move list
+        let fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2"
+        guard let pos = BoardPosition.fromFEN(fen) else {
+            Issue.record("Failed to parse FEN")
+            return
+        }
+        let sans = pos.legalMoveSANs()
+        #expect(sans.contains("Nf3"))
+        #expect(sans.contains("Nc3"))
+        #expect(sans.contains("d4"))
+    }
+
+    @Test("Similar moves returns ranked suggestions")
+    func similarMoves() {
+        // After 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 — try "Ng6" (should suggest Nf6, Ng8, etc.)
+        let fen = "r1bqkbnr/1ppp1ppp/p1n5/4p3/B3P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 1 4"
+        guard let pos = BoardPosition.fromFEN(fen) else {
+            Issue.record("Failed to parse FEN")
+            return
+        }
+        let suggestions = pos.similarLegalMoves(to: "Ng6")
+        #expect(!suggestions.isEmpty)
+        // Nf6 should be one of the top suggestions (shares "N" prefix and "6" suffix)
+        let suggestionSANs = suggestions.map { $0.san.replacingOccurrences(of: "+", with: "").replacingOccurrences(of: "#", with: "") }
+        #expect(suggestionSANs.contains("Nf6"))
+    }
+
+    @Test("legalMove(forSAN:) finds correct move")
+    func legalMoveForSAN() {
+        let pos = BoardPosition.initial
+        let move = pos.legalMove(forSAN: "e4")
+        #expect(move != nil)
+        #expect(move?.from == Square(file: 4, rank: 1))
+        #expect(move?.to == Square(file: 4, rank: 3))
+        #expect(move?.piece.type == .pawn)
+    }
 }
 
 @Suite("Square Tests")

@@ -2,9 +2,9 @@ import SwiftUI
 
 /// Settings screen — app preferences
 struct SettingsScreen: View {
-    @State private var showBegPieces = false
-    @State private var hapticEnabled = true
-    @State private var boardTheme = 0 // 0 = classic, 1 = blue, 2 = green
+    @AppStorage("showBeginnerPieces") private var showBegPieces = false
+    @AppStorage("hapticEnabled") private var hapticEnabled = true
+    @AppStorage("boardTheme") private var boardTheme = 0 // 0 = classic, 1 = blue, 2 = green
 
     var body: some View {
         List {
