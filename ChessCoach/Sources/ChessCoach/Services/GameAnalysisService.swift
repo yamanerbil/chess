@@ -141,8 +141,8 @@ final class GameAnalysisService {
                     bestMove: bestMoveSAN
                 ),
                 bestMove: bestMoveSAN,
-                evalBefore: evalBefore.score,
-                evalAfter: evalAfter.score,
+                evalBefore: evalBefore.score / 100.0,
+                evalAfter: evalAfter.score / 100.0,
                 engineLines: evalBefore.bestLine
             )
         }

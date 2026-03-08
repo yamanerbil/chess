@@ -9,6 +9,11 @@ struct GameReviewScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Analysis progress banner
+            if viewModel.isAnalyzing {
+                analysisProgressBanner
+            }
+
             // Content area
             switch viewModel.selectedTab {
             case .board:
@@ -45,14 +50,86 @@ struct GameReviewScreen: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    // Settings placeholder
-                } label: {
-                    Image(systemName: "gearshape")
-                        .foregroundColor(DesignSystem.Colors.secondaryText)
-                }
+                analyzeToolbarButton
             }
         }
+        .alert("Analysis Error", isPresented: .init(
+            get: { viewModel.analysisError != nil },
+            set: { if !$0 { viewModel.analysisError = nil } }
+        )) {
+            Button("OK") { viewModel.analysisError = nil }
+        } message: {
+            Text(viewModel.analysisError ?? "")
+        }
+    }
+
+    // MARK: - Toolbar Analyze Button
+
+    @ViewBuilder
+    private var analyzeToolbarButton: some View {
+        if viewModel.isAnalyzing {
+            ProgressView()
+                .scaleEffect(0.8)
+        } else if viewModel.hasEngineAnalysis {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(DesignSystem.Colors.success)
+                .font(.system(size: 16))
+        } else {
+            Button {
+                Task { await viewModel.runAnalysis() }
+            } label: {
+                Label("Analyze", systemImage: "cpu")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(DesignSystem.Colors.primary)
+            }
+        }
+    }
+
+    // MARK: - Analysis Progress Banner
+
+    private var analysisProgressBanner: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .scaleEffect(0.7)
+                    .tint(.white)
+
+                if let progress = viewModel.analysisProgress {
+                    Text(progress.phase.rawValue)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+
+                    Spacer()
+
+                    Text("\(progress.currentMove)/\(progress.totalMoves)")
+                        .font(DesignSystem.Fonts.moveNotation(13))
+                        .foregroundColor(.white.opacity(0.8))
+                } else {
+                    Text("Preparing analysis...")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                    Spacer()
+                }
+            }
+
+            // Progress bar
+            if let progress = viewModel.analysisProgress {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.white.opacity(0.2))
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.white)
+                            .frame(width: geometry.size.width * progress.fraction)
+                            .animation(.easeInOut(duration: 0.3), value: progress.fraction)
+                    }
+                }
+                .frame(height: 3)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(DesignSystem.Colors.primary)
     }
 
     // MARK: - Board Tab
@@ -60,6 +137,13 @@ struct GameReviewScreen: View {
     private var boardTab: some View {
         ScrollView {
             VStack(spacing: 14) {
+                // Eval bar (show when annotations exist)
+                if viewModel.hasEngineAnalysis || !viewModel.liveAnnotations.isEmpty {
+                    EvalBarView(evaluation: viewModel.currentEval)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 4)
+                }
+
                 // Chess board with swipe gestures and shadow
                 ChessBoardView(
                     position: viewModel.currentPosition,
@@ -85,15 +169,20 @@ struct GameReviewScreen: View {
                 moveChipList
                     .padding(.horizontal, 16)
 
-                // Coaching annotation card
-                MoveAnnotationCard(
-                    move: viewModel.lastMove,
-                    annotation: viewModel.currentAnnotation,
-                    moveIndex: viewModel.currentMoveIndex
-                )
-                .padding(.horizontal, 16)
+                // Coaching annotation card or analyze prompt
+                if viewModel.currentAnnotation != nil || viewModel.lastMove != nil {
+                    MoveAnnotationCard(
+                        move: viewModel.lastMove,
+                        annotation: viewModel.currentAnnotation,
+                        moveIndex: viewModel.currentMoveIndex
+                    )
+                    .padding(.horizontal, 16)
+                } else if !viewModel.hasEngineAnalysis && viewModel.liveAnnotations.isEmpty {
+                    analyzePromptCard
+                        .padding(.horizontal, 16)
+                }
 
-                // Navigation bar with play button
+                // Navigation bar
                 MoveNavigationBar(
                     currentMoveIndex: viewModel.currentMoveIndex,
                     totalMoves: viewModel.game.moves.count,
@@ -110,15 +199,68 @@ struct GameReviewScreen: View {
         }
     }
 
+    // MARK: - Analyze Prompt Card
+
+    private var analyzePromptCard: some View {
+        Button {
+            Task { await viewModel.runAnalysis() }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 24))
+                    .foregroundColor(DesignSystem.Colors.primary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Analyze with Stockfish")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Text("Get move-by-move feedback")
+                        .font(.system(size: 13))
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                }
+
+                Spacer()
+
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(DesignSystem.Colors.primary)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadius)
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Move Chip List
 
     private var moveChipList: some View {
         VStack(spacing: 8) {
-            // Header
+            // Header with analysis stats
             HStack {
                 Text("MOVE LIST")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(DesignSystem.Colors.secondaryText)
+
+                // Quick stats after analysis
+                if viewModel.hasEngineAnalysis {
+                    let stats = viewModel.analysisStats
+                    HStack(spacing: 6) {
+                        if stats.blunderCount > 0 {
+                            statBadge(count: stats.blunderCount, color: MoveClassification.blunder.color, icon: "bolt.fill")
+                        }
+                        if stats.mistakeCount > 0 {
+                            statBadge(count: stats.mistakeCount, color: MoveClassification.mistake.color, icon: "xmark.circle.fill")
+                        }
+                        if stats.brilliantCount > 0 {
+                            statBadge(count: stats.brilliantCount, color: MoveClassification.brilliant.color, icon: "sparkles")
+                        }
+                    }
+                }
+
                 Spacer()
                 Button {
                     viewModel.selectedTab = .moves
@@ -150,8 +292,20 @@ struct GameReviewScreen: View {
     }
 
     @ViewBuilder
+    private func statBadge(count: Int, color: Color, icon: String) -> some View {
+        HStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 9))
+            Text("\(count)")
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundColor(color)
+    }
+
+    @ViewBuilder
     private func moveChip(move: ChessMove, index: Int) -> some View {
         let isSelected = viewModel.currentMoveIndex == index
+        let annotation = viewModel.liveAnnotations[index - 1]
         let moveNum = move.color == .white
             ? "\(move.moveNumber)."
             : "\(move.moveNumber)..."
@@ -174,6 +328,18 @@ struct GameReviewScreen: View {
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? DesignSystem.Colors.primary : Color.gray.opacity(0.1))
+            )
+            .overlay(
+                // Classification indicator dot
+                Group {
+                    if let ann = annotation, !isSelected {
+                        Circle()
+                            .fill(ann.classification.color)
+                            .frame(width: 6, height: 6)
+                            .offset(x: 0, y: -2)
+                    }
+                },
+                alignment: .topTrailing
             )
         }
         .buttonStyle(.plain)
