@@ -55,9 +55,10 @@ final class GameAnalysisService {
     var isAnalyzing: Bool = false
 
     /// Initialize with a chess engine and search depth.
-    /// Defaults to MockChessEngine — replace with StockfishUCIEngine when the binary is available.
+    /// Defaults to ChessKitStockfishEngine (Stockfish 17, works on iOS and macOS).
+    /// Falls back to MockChessEngine if no engine is provided explicitly.
     init(engine: ChessEngine? = nil, depth: Int = kDefaultEngineDepth) {
-        self.engine = engine ?? MockChessEngine()
+        self.engine = engine ?? ChessKitStockfishEngine()
         self.depth = depth
     }
 
@@ -79,6 +80,14 @@ final class GameAnalysisService {
 
         let totalMoves = game.moves.count
         guard totalMoves > 0 else { return [:] }
+
+        // Start the engine if it supports it
+        if let stockfish = engine as? ChessKitStockfishEngine {
+            try await stockfish.start()
+        }
+        defer {
+            Task { await engine.quit() }
+        }
 
         // Phase 1: Evaluate all positions
         updateProgress(.init(currentMove: 0, totalMoves: totalMoves, phase: .starting))
