@@ -13,9 +13,15 @@ let package = Package(
             targets: ["ChessCoach"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/chesskit-app/chesskit-engine.git", from: "0.5.0")
+    ],
     targets: [
         .target(
             name: "ChessCoach",
+            dependencies: [
+                .product(name: "ChessKitEngine", package: "chesskit-engine")
+            ],
             path: "Sources/ChessCoach",
             exclude: ["Resources"],
             swiftSettings: [

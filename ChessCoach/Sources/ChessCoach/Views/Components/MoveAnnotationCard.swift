@@ -5,6 +5,12 @@ struct MoveAnnotationCard: View {
     let move: ChessMove?
     let annotation: MoveAnnotation?
     let moveIndex: Int
+    /// Whether this move has received Claude coaching (vs placeholder text)
+    var hasCoaching: Bool = false
+    /// Whether Claude coaching is currently loading
+    var isLoadingCoaching: Bool = false
+    /// Callback to request Claude coaching for this move
+    var onRequestCoaching: (() -> Void)?
     @State private var showEngineLines = false
 
     var body: some View {
@@ -84,6 +90,34 @@ struct MoveAnnotationCard: View {
                                 }
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             }
+                        }
+
+                        // Claude coaching button
+                        if let onRequest = onRequestCoaching, !hasCoaching {
+                            Button {
+                                onRequest()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if isLoadingCoaching {
+                                        ProgressView()
+                                            .scaleEffect(0.7)
+                                    } else {
+                                        Image(systemName: "sparkles")
+                                            .font(.system(size: 12))
+                                    }
+                                    Text(isLoadingCoaching ? "Getting coaching..." : "Get AI coaching")
+                                        .font(.system(size: 13, weight: .medium))
+                                }
+                                .foregroundColor(DesignSystem.Colors.primary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(DesignSystem.Colors.primary.opacity(0.1))
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isLoadingCoaching)
                         }
                     }
                 }

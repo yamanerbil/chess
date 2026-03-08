@@ -3,6 +3,12 @@ import SwiftUI
 /// Full coaching report view with opening, middlegame, endgame sections and key takeaways
 struct CoachingReportView: View {
     let game: Game
+    /// Claude-generated game report (nil = use heuristic takeaways)
+    var gameReport: GameReport?
+    /// Whether a Claude report is currently loading
+    var isGeneratingReport: Bool = false
+    /// Callback to request a Claude report
+    var onRequestReport: (() -> Void)?
     let onJumpToMove: (Int) -> Void
 
     private var playerMoves: [(offset: Int, element: ChessMove)] {
@@ -133,8 +139,40 @@ struct CoachingReportView: View {
                     )
                 }
 
-                // Key takeaways
-                takeawaysCard
+                // Claude AI coaching report (if available)
+                if let report = gameReport {
+                    claudeReportCard(report)
+                } else {
+                    // Heuristic takeaways
+                    takeawaysCard
+
+                    // Generate AI report button
+                    if let onRequest = onRequestReport {
+                        Button {
+                            onRequest()
+                        } label: {
+                            HStack(spacing: 8) {
+                                if isGeneratingReport {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "sparkles")
+                                }
+                                Text(isGeneratingReport ? "Generating AI report..." : "Get AI Coaching Report")
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadius)
+                                    .fill(DesignSystem.Colors.primary)
+                            )
+                        }
+                        .disabled(isGeneratingReport)
+                        .padding(.horizontal, 16)
+                    }
+                }
 
                 // Export buttons
                 exportButtons
@@ -384,6 +422,118 @@ struct CoachingReportView: View {
                 )
             }
         }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Claude Report Card
+
+    @ViewBuilder
+    private func claudeReportCard(_ report: GameReport) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Summary
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .foregroundColor(DesignSystem.Colors.accent)
+                Text("AI Coaching Report")
+                    .font(DesignSystem.Fonts.headline(16))
+            }
+
+            Text(report.summary)
+                .font(DesignSystem.Fonts.coaching(15))
+
+            // Key moments
+            if !report.keyMoments.isEmpty {
+                Divider()
+
+                Text("KEY MOMENTS")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
+
+                ForEach(Array(report.keyMoments.enumerated()), id: \.offset) { _, moment in
+                    Button {
+                        // Jump to the move (convert from full-move number to half-move index)
+                        let halfMoveIndex = moment.moveNumber * 2 - 1
+                        if halfMoveIndex > 0 && halfMoveIndex <= game.moves.count {
+                            onJumpToMove(halfMoveIndex)
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Move \(moment.moveNumber): \(moment.title)")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.gray)
+                            }
+                            Text(moment.explanation)
+                                .font(DesignSystem.Fonts.coaching(14))
+                                .foregroundColor(.primary)
+                                .multilineTextAlignment(.leading)
+                            if let alt = moment.betterAlternative {
+                                Text("Better: \(alt)")
+                                    .font(DesignSystem.Fonts.moveNotation(13))
+                                    .foregroundColor(DesignSystem.Colors.primary)
+                            }
+                        }
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.gray.opacity(0.06))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            // Strengths
+            if !report.strengths.isEmpty {
+                Divider()
+                Text("STRENGTHS")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(DesignSystem.Colors.secondaryText)
+
+                ForEach(Array(report.strengths.enumerated()), id: \.offset) { _, strength in
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(DesignSystem.Colors.success)
+                            .padding(.top, 2)
+                        Text(strength)
+                            .font(DesignSystem.Fonts.coaching(14))
+                    }
+                }
+            }
+
+            // Homework
+            Divider()
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "target")
+                    .foregroundColor(DesignSystem.Colors.accent)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("HOMEWORK")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                    Text(report.homework)
+                        .font(DesignSystem.Fonts.coaching(15))
+                        .fontWeight(.medium)
+                }
+            }
+
+            // Encouragement
+            Text(report.encouragement)
+                .font(DesignSystem.Fonts.coaching(15))
+                .italic()
+                .foregroundColor(DesignSystem.Colors.primary)
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignSystem.Layout.cardPadding)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.Layout.cornerRadius)
+                .fill(Color.gray.opacity(0.08))
+        )
         .padding(.horizontal, 16)
     }
 

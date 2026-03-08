@@ -75,16 +75,34 @@ struct MoveAnnotation: Identifiable, Codable {
     let explanation: String
     /// What the engine recommends as best
     let bestMove: String?
+    /// Evaluation before this move in centipawns (positive = white advantage)
+    let evalBefore: Double?
     /// Evaluation after this move in centipawns (positive = white advantage)
     let evalAfter: Double
     /// Top engine lines (SAN strings)
     let engineLines: [String]
+
+    /// Centipawn loss from the perspective of the moving side.
+    /// Positive means the move was worse than the best move.
+    var cpLoss: Double? {
+        guard let before = evalBefore else { return nil }
+        // Eval is always from white's perspective, so a move is "bad" when
+        // the eval swings against the side that moved.
+        return abs(evalAfter - before)
+    }
+
+    /// Whether this move is flagged as a key moment (significant eval swing)
+    var isKeyMoment: Bool {
+        guard let loss = cpLoss else { return false }
+        return loss >= 100 || classification == .brilliant || classification == .blunder
+    }
 
     init(
         id: UUID = UUID(),
         classification: MoveClassification,
         explanation: String,
         bestMove: String? = nil,
+        evalBefore: Double? = nil,
         evalAfter: Double,
         engineLines: [String] = []
     ) {
@@ -92,6 +110,7 @@ struct MoveAnnotation: Identifiable, Codable {
         self.classification = classification
         self.explanation = explanation
         self.bestMove = bestMove
+        self.evalBefore = evalBefore
         self.evalAfter = evalAfter
         self.engineLines = engineLines
     }
