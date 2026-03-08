@@ -28,6 +28,12 @@ final class GameReviewViewModel {
     /// The analysis service used for engine evaluation
     let analysisService: GameAnalysisService
 
+    /// The coaching service for Claude API explanations
+    let coachService: ClaudeCoachService
+
+    /// Player profile for age/rating-calibrated coaching
+    var playerProfile: PlayerProfile
+
     /// Live annotations — starts with the game's existing annotations,
     /// gets replaced when engine analysis completes
     private(set) var liveAnnotations: [Int: MoveAnnotation]
@@ -43,6 +49,18 @@ final class GameReviewViewModel {
 
     /// Whether this game has been analyzed by the engine
     var hasEngineAnalysis: Bool = false
+
+    /// Whether Claude coaching is loading for the current move
+    var isLoadingCoaching: Bool { coachService.isLoading }
+
+    /// Set of move indices that have received Claude coaching
+    private(set) var coachedMoveIndices: Set<Int> = []
+
+    /// Full game report from Claude
+    private(set) var gameReport: GameReport?
+
+    /// Whether a game report is being generated
+    var isGeneratingReport: Bool = false
 
     // MARK: - Computed Properties
 
@@ -110,9 +128,16 @@ final class GameReviewViewModel {
         return DesignSystem.Colors.secondaryText
     }
 
-    init(game: Game, analysisService: GameAnalysisService = GameAnalysisService()) {
+    init(
+        game: Game,
+        analysisService: GameAnalysisService = GameAnalysisService(),
+        coachService: ClaudeCoachService = ClaudeCoachService(),
+        playerProfile: PlayerProfile = .default
+    ) {
         self.game = game
         self.analysisService = analysisService
+        self.coachService = coachService
+        self.playerProfile = playerProfile
         self.liveAnnotations = game.annotations
     }
 
@@ -146,6 +171,56 @@ final class GameReviewViewModel {
             )
         } catch {
             analysisError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Claude Coaching
+
+    /// Request a Claude coaching explanation for the current move.
+    /// Replaces the placeholder annotation with Claude's kid-friendly explanation.
+    func requestCoaching() async {
+        let moveIdx = currentMoveIndex - 1
+        guard moveIdx >= 0,
+              moveIdx < game.moves.count,
+              let annotation = liveAnnotations[moveIdx],
+              !coachedMoveIndices.contains(moveIdx) else { return }
+
+        let move = game.moves[moveIdx]
+
+        if let updated = await coachService.explainMove(
+            move: move,
+            annotation: annotation,
+            game: game,
+            moveIndex: moveIdx,
+            profile: playerProfile
+        ) {
+            liveAnnotations[moveIdx] = updated
+            coachedMoveIndices.insert(moveIdx)
+        }
+
+        if let error = coachService.lastError {
+            analysisError = error
+        }
+    }
+
+    /// Whether the current move has Claude coaching (not just placeholder)
+    var currentMoveHasCoaching: Bool {
+        currentMoveIndex > 0 && coachedMoveIndices.contains(currentMoveIndex - 1)
+    }
+
+    /// Generate a full game coaching report via Claude.
+    func requestGameReport() async {
+        guard !isGeneratingReport, gameReport == nil else { return }
+        isGeneratingReport = true
+        defer { isGeneratingReport = false }
+
+        gameReport = await coachService.analyzeFullGame(
+            game: game,
+            profile: playerProfile
+        )
+
+        if let error = coachService.lastError {
+            analysisError = error
         }
     }
 

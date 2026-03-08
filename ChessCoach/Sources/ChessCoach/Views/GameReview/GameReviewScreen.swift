@@ -174,7 +174,12 @@ struct GameReviewScreen: View {
                     MoveAnnotationCard(
                         move: viewModel.lastMove,
                         annotation: viewModel.currentAnnotation,
-                        moveIndex: viewModel.currentMoveIndex
+                        moveIndex: viewModel.currentMoveIndex,
+                        hasCoaching: viewModel.currentMoveHasCoaching,
+                        isLoadingCoaching: viewModel.isLoadingCoaching,
+                        onRequestCoaching: viewModel.hasEngineAnalysis ? {
+                            Task { await viewModel.requestCoaching() }
+                        } : nil
                     )
                     .padding(.horizontal, 16)
                 } else if !viewModel.hasEngineAnalysis && viewModel.liveAnnotations.isEmpty {
@@ -376,10 +381,18 @@ struct GameReviewScreen: View {
     // MARK: - Report Tab
 
     private var reportTab: some View {
-        CoachingReportView(game: viewModel.game) { moveIndex in
-            viewModel.goToMove(moveIndex)
-            viewModel.selectedTab = .board
-        }
+        CoachingReportView(
+            game: viewModel.game,
+            gameReport: viewModel.gameReport,
+            isGeneratingReport: viewModel.isGeneratingReport,
+            onRequestReport: viewModel.hasEngineAnalysis ? {
+                Task { await viewModel.requestGameReport() }
+            } : nil,
+            onJumpToMove: { moveIndex in
+                viewModel.goToMove(moveIndex)
+                viewModel.selectedTab = .board
+            }
+        )
     }
 }
 
