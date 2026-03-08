@@ -198,7 +198,7 @@ struct GameReviewScreen: View {
             // Move list
             MoveListView(
                 moves: viewModel.game.moves,
-                annotations: viewModel.game.annotations,
+                annotations: viewModel.liveAnnotations,
                 currentMoveIndex: viewModel.currentMoveIndex,
                 onSelectMove: { index in
                     viewModel.goToMove(index)

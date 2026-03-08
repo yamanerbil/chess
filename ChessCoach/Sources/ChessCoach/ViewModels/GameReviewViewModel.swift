@@ -4,7 +4,7 @@ import Observation
 /// View model for the Game Review screen
 @Observable
 final class GameReviewViewModel {
-    let game: Game
+    private(set) var game: Game
 
     /// Current move index: 0 = starting position, 1 = after first move, etc.
     /// Uses a backing store to avoid infinite recursion with @Observable's didSet.
@@ -23,6 +23,29 @@ final class GameReviewViewModel {
         case report = "Report"
     }
 
+    // MARK: - Analysis State
+
+    /// The analysis service used for engine evaluation
+    let analysisService: GameAnalysisService
+
+    /// Live annotations — starts with the game's existing annotations,
+    /// gets replaced when engine analysis completes
+    private(set) var liveAnnotations: [Int: MoveAnnotation]
+
+    /// Whether engine analysis is in progress
+    var isAnalyzing: Bool { analysisService.isAnalyzing }
+
+    /// Current analysis progress
+    var analysisProgress: AnalysisProgress? { analysisService.progress }
+
+    /// Error from the last analysis attempt
+    var analysisError: String?
+
+    /// Whether this game has been analyzed by the engine
+    var hasEngineAnalysis: Bool = false
+
+    // MARK: - Computed Properties
+
     /// The current board position
     var currentPosition: BoardPosition {
         game.positions[currentMoveIndex]
@@ -33,10 +56,10 @@ final class GameReviewViewModel {
         currentMoveIndex > 0 ? game.moves[currentMoveIndex - 1] : nil
     }
 
-    /// Annotation for the current move
+    /// Annotation for the current move (uses live annotations)
     var currentAnnotation: MoveAnnotation? {
         guard currentMoveIndex > 0 else { return nil }
-        return game.annotations[currentMoveIndex - 1]
+        return liveAnnotations[currentMoveIndex - 1]
     }
 
     /// Current evaluation
@@ -87,8 +110,52 @@ final class GameReviewViewModel {
         return DesignSystem.Colors.secondaryText
     }
 
-    init(game: Game) {
+    init(game: Game, analysisService: GameAnalysisService = GameAnalysisService()) {
         self.game = game
+        self.analysisService = analysisService
+        self.liveAnnotations = game.annotations
+    }
+
+    // MARK: - Engine Analysis
+
+    /// Run Stockfish analysis on the full game.
+    /// Updates `liveAnnotations` as results come in.
+    func runAnalysis() async {
+        guard !isAnalyzing else { return }
+        analysisError = nil
+
+        do {
+            let annotations = try await analysisService.analyzeGame(game)
+            liveAnnotations = annotations
+            hasEngineAnalysis = true
+
+            // Update the game with new annotations
+            game = Game(
+                id: game.id,
+                white: game.white,
+                black: game.black,
+                event: game.event,
+                round: game.round,
+                date: game.date,
+                result: game.result,
+                opening: game.opening,
+                playerColor: game.playerColor,
+                moves: game.moves,
+                annotations: annotations,
+                positions: game.positions
+            )
+        } catch {
+            analysisError = error.localizedDescription
+        }
+    }
+
+    /// Analysis stats for the player
+    var analysisStats: AnalysisStats {
+        GameAnalysisService.computeStats(
+            annotations: liveAnnotations,
+            moves: game.moves,
+            playerColor: game.playerColor
+        )
     }
 
     // MARK: - Navigation

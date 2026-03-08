@@ -88,6 +88,52 @@ struct BoardPosition: Equatable, Codable {
         )
     }()
 
+    /// Convert this position to a FEN string
+    func toFEN() -> String {
+        var parts: [String] = []
+
+        // Piece placement (rank 8 to rank 1)
+        var placement: [String] = []
+        for rank in stride(from: 7, through: 0, by: -1) {
+            var rankStr = ""
+            var emptyCount = 0
+            for file in 0..<8 {
+                if let piece = board[rank][file] {
+                    if emptyCount > 0 {
+                        rankStr += "\(emptyCount)"
+                        emptyCount = 0
+                    }
+                    rankStr += String(piece.fenChar)
+                } else {
+                    emptyCount += 1
+                }
+            }
+            if emptyCount > 0 { rankStr += "\(emptyCount)" }
+            placement.append(rankStr)
+        }
+        parts.append(placement.joined(separator: "/"))
+
+        // Active color
+        parts.append(activeColor == .white ? "w" : "b")
+
+        // Castling
+        var castling = ""
+        if castlingRights.whiteKingside { castling += "K" }
+        if castlingRights.whiteQueenside { castling += "Q" }
+        if castlingRights.blackKingside { castling += "k" }
+        if castlingRights.blackQueenside { castling += "q" }
+        parts.append(castling.isEmpty ? "-" : castling)
+
+        // En passant
+        parts.append(enPassantTarget?.notation ?? "-")
+
+        // Halfmove clock and fullmove number
+        parts.append("\(halfmoveClock)")
+        parts.append("\(fullmoveNumber)")
+
+        return parts.joined(separator: " ")
+    }
+
     /// Parse a FEN string into a BoardPosition
     static func fromFEN(_ fen: String) -> BoardPosition? {
         let parts = fen.split(separator: " ")
