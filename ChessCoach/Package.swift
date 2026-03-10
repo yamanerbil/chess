@@ -23,7 +23,9 @@ let package = Package(
                 .product(name: "ChessKitEngine", package: "chesskit-engine")
             ],
             path: "Sources/ChessCoach",
-            exclude: ["Resources"],
+            resources: [
+                .process("Resources")
+            ],
             swiftSettings: [
                 .define("SPM_BUILD")
             ]

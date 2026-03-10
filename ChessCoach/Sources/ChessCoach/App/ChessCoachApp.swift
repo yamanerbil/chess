@@ -20,6 +20,7 @@ public struct MainTabView: View {
     @Query(sort: \GameRecord.createdAt, order: .reverse) private var gameRecords: [GameRecord]
     @State private var selectedTab = 0
     @State private var showScanner = false
+    @State private var navigationPath = NavigationPath()
 
     public init() {}
 
@@ -35,33 +36,33 @@ public struct MainTabView: View {
     public var body: some View {
         TabView(selection: $selectedTab) {
             // Home tab
-            NavigationStack {
+            NavigationStack(path: $navigationPath) {
                 HomeScreen(games: games)
                     .navigationDestination(for: UUID.self) { gameId in
                         if let game = games.first(where: { $0.id == gameId }) {
                             GameReviewScreen(viewModel: GameReviewViewModel(game: game))
                         }
                     }
-            }
-            .overlay(alignment: .bottom) {
-                Button {
-                    showScanner = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "camera.fill")
-                        Text("Scan Game")
-                            .font(DesignSystem.Fonts.headline(16))
+                    .overlay(alignment: .bottom) {
+                        Button {
+                            showScanner = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "camera.fill")
+                                Text("Scan Game")
+                                    .font(DesignSystem.Fonts.headline(16))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 14)
+                            .background(
+                                Capsule()
+                                    .fill(DesignSystem.Colors.primary)
+                                    .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 8, y: 4)
+                            )
+                        }
+                        .padding(.bottom, 60)
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(
-                        Capsule()
-                            .fill(DesignSystem.Colors.primary)
-                            .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 8, y: 4)
-                    )
-                }
-                .padding(.bottom, 60)
             }
             .tabItem {
                 Label("Home", systemImage: "house.fill")
