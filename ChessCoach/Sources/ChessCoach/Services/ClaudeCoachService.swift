@@ -25,8 +25,8 @@ struct GameReport: Codable {
     }
 }
 
-/// Player profile for age/rating-calibrated coaching
-struct PlayerProfile {
+/// Player profile for age/rating-calibrated coaching (separate from SwiftData PlayerProfile model)
+struct CoachingProfile {
     let name: String
     let age: Int
     let rating: Int
@@ -40,7 +40,7 @@ struct PlayerProfile {
     }
 
     /// Default profile for when no profile is configured
-    static let `default` = PlayerProfile(name: "Player", age: 10, rating: 1000)
+    static let `default` = CoachingProfile(name: "Player", age: 10, rating: 1000)
 }
 
 /// Orchestrates Claude API calls for chess coaching feedback.
@@ -66,7 +66,7 @@ final class ClaudeCoachService {
 
     // MARK: - System Prompt
 
-    private func systemPrompt(for profile: PlayerProfile) -> String {
+    private func systemPrompt(for profile: CoachingProfile) -> String {
         """
         You are a friendly, encouraging chess coach for kids. Your student's name \
         is \(profile.name), they are \(profile.age) years old, rated \
@@ -130,7 +130,7 @@ final class ClaudeCoachService {
         annotation: MoveAnnotation,
         game: Game,
         moveIndex: Int,
-        profile: PlayerProfile = .default
+        profile: CoachingProfile = .default
     ) async -> MoveAnnotation? {
         isLoading = true
         defer { isLoading = false }
@@ -207,7 +207,7 @@ final class ClaudeCoachService {
     /// - Returns: A GameReport with summary, key moments, and homework
     func analyzeFullGame(
         game: Game,
-        profile: PlayerProfile = .default
+        profile: CoachingProfile = .default
     ) async -> GameReport? {
         isLoading = true
         defer { isLoading = false }

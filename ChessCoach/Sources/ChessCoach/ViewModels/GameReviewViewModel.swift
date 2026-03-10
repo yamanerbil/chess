@@ -32,7 +32,7 @@ final class GameReviewViewModel {
     let coachService: ClaudeCoachService
 
     /// Player profile for age/rating-calibrated coaching
-    var playerProfile: PlayerProfile
+    var playerProfile: CoachingProfile
 
     /// Live annotations — starts with the game's existing annotations,
     /// gets replaced when engine analysis completes
@@ -132,7 +132,7 @@ final class GameReviewViewModel {
         game: Game,
         analysisService: GameAnalysisService = GameAnalysisService(),
         coachService: ClaudeCoachService = ClaudeCoachService(),
-        playerProfile: PlayerProfile = .default
+        playerProfile: CoachingProfile = .default
     ) {
         self.game = game
         self.analysisService = analysisService
