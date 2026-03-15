@@ -6,6 +6,8 @@ struct ProcessingScreen: View {
     let images: [CGImage]
     let onComplete: ([ScannedMove]) -> Void
 
+    private let claudeClient = ClaudeAPIClient()
+
     @State private var animationPhase: CGFloat = 0
     @State private var progressValue: CGFloat = 0
     @State private var tipIndex = 0
@@ -15,7 +17,7 @@ struct ProcessingScreen: View {
     let tips = [
         "Flatten the sheet for best results",
         "Good lighting helps!",
-        "Clear handwriting makes scanning easier",
+        "AI reads handwriting like a chess coach",
         "We can handle most scoresheet formats",
     ]
 
@@ -122,26 +124,39 @@ struct ProcessingScreen: View {
         }
 
         Task {
+            let useClaudeVision = await claudeClient.isConfigured
+
             do {
-                // Process each page and combine results
                 var allMoves: [ScannedMove] = []
 
                 for (pageIndex, image) in images.enumerated() {
                     await MainActor.run {
-                        statusText = images.count > 1
-                            ? "Reading page \(pageIndex + 1) of \(images.count)..."
-                            : "Reading your moves..."
+                        if images.count > 1 {
+                            statusText = "Reading page \(pageIndex + 1) of \(images.count)..."
+                        } else {
+                            statusText = useClaudeVision
+                                ? "AI is reading your scoresheet..."
+                                : "Reading your moves..."
+                        }
                         withAnimation(.easeOut(duration: 0.3)) {
                             progressValue = 0.3 + 0.5 * CGFloat(pageIndex) / CGFloat(images.count)
                         }
                     }
 
-                    // Save the scoresheet image as PNG
+                    // Save the scoresheet image
                     ScoresheetOCR.saveImage(image)
 
-                    // Run OCR
-                    let rawText = try await ScoresheetOCR.recognizeText(from: image)
-                    let pageMoves = ScoresheetOCR.parseMoves(from: rawText)
+                    let pageMoves: [ScannedMove]
+
+                    if useClaudeVision {
+                        // Use Claude Vision for much better handwriting recognition
+                        let result = try await ScoresheetOCR.processImageWithClaude(image, client: claudeClient)
+                        pageMoves = result.moves
+                    } else {
+                        // Fall back to on-device Apple Vision OCR
+                        let rawText = try await ScoresheetOCR.recognizeText(from: image)
+                        pageMoves = ScoresheetOCR.parseMoves(from: rawText)
+                    }
 
                     // Renumber moves continuing from previous pages
                     let offset = allMoves.count
@@ -153,7 +168,7 @@ struct ProcessingScreen: View {
                             san: move.san,
                             moveNumber: moveNumber,
                             color: color,
-                            status: .valid
+                            status: move.status
                         ))
                     }
                 }

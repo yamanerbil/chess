@@ -76,6 +76,99 @@ enum ScoresheetOCR {
         return ScanResult(rawText: rawText, moves: moves, savedImagePath: savedPath)
     }
 
+    // MARK: - Claude Vision OCR
+
+    /// Use Claude's vision capability to read chess moves from a scoresheet image.
+    /// Much more accurate than Apple Vision for handwritten chess notation.
+    static func processImageWithClaude(_ cgImage: CGImage, client: ClaudeAPIClient) async throws -> ScanResult {
+        let imageData = jpegData(from: cgImage)
+        guard let data = imageData else {
+            throw ClaudeOCRError.imageConversionFailed
+        }
+
+        let systemPrompt = """
+        You are a chess scoresheet OCR system. Your job is to extract chess moves \
+        from photos of handwritten tournament scoresheets.
+
+        RULES:
+        1. Output ONLY the moves in standard algebraic notation (SAN), one per line
+        2. Format: "1. e4 e5" (move number, dot, white move, black move)
+        3. Use proper piece letters: K, Q, R, B, N (uppercase)
+        4. Use proper file letters: a-h (lowercase) and rank numbers: 1-8
+        5. Use "x" for captures, "+" for check, "#" for checkmate
+        6. Use "O-O" for kingside castling, "O-O-O" for queenside castling
+        7. If a move is completely illegible, write "???" as a placeholder
+        8. Do NOT include annotations, comments, or evaluations
+        9. If the scoresheet has a result (1-0, 0-1, 1/2-1/2), include it on the last line
+        10. Read carefully — handwritten scoresheets are often messy. Use your knowledge \
+        of chess to infer likely moves when handwriting is ambiguous.
+        """
+
+        let userMessage = """
+        Extract all chess moves from this handwritten scoresheet image. \
+        Output only the moves in standard algebraic notation, numbered sequentially.
+        """
+
+        let response = try await client.sendMessageWithImage(
+            system: systemPrompt,
+            userMessage: userMessage,
+            imageData: data,
+            mediaType: "image/jpeg",
+            maxTokens: 2048
+        )
+
+        let moves = parseClaudeResponse(response)
+        let savedPath = saveImage(cgImage)
+        return ScanResult(rawText: response, moves: moves, savedImagePath: savedPath)
+    }
+
+    /// Parse Claude's response into ScannedMove array
+    private static func parseClaudeResponse(_ text: String) -> [ScannedMove] {
+        // Claude returns numbered moves like "1. e4 e5\n2. Nf3 Nc6\n..."
+        let sans = parseSANMoves(from: text)
+
+        var moves: [ScannedMove] = []
+        for (index, san) in sans.enumerated() {
+            // Skip result strings
+            if san == "1-0" || san == "0-1" || san == "1/2-1/2" { continue }
+            // Skip placeholder for illegible moves
+            let status: ScannedMove.MoveStatus = (san == "???") ? .illegal : .valid
+            let color: PieceColor = (index % 2 == 0) ? .white : .black
+            let moveNumber = (index / 2) + 1
+            moves.append(ScannedMove(
+                san: san,
+                moveNumber: moveNumber,
+                color: color,
+                status: status
+            ))
+        }
+        return moves
+    }
+
+    /// Convert CGImage to JPEG data for API upload
+    private static func jpegData(from cgImage: CGImage, quality: CGFloat = 0.85) -> Data? {
+        #if canImport(UIKit)
+        let uiImage = UIImage(cgImage: cgImage)
+        return uiImage.jpegData(compressionQuality: quality)
+        #else
+        return nil
+        #endif
+    }
+
+    enum ClaudeOCRError: LocalizedError {
+        case imageConversionFailed
+        case apiNotConfigured
+
+        var errorDescription: String? {
+            switch self {
+            case .imageConversionFailed:
+                return "Failed to convert scoresheet image for upload."
+            case .apiNotConfigured:
+                return "Claude API key not configured. Go to Settings to add your API key, or use on-device scanning."
+            }
+        }
+    }
+
     // MARK: - OCR Text → SAN Parsing
 
     /// Parse OCR text that may contain scoresheet formatting into SAN moves.

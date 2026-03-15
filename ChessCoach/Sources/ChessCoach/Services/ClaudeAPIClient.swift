@@ -33,6 +33,83 @@ actor ClaudeAPIClient {
 
     // MARK: - Public API
 
+    /// Send a message with an image to Claude and return the text response.
+    func sendMessageWithImage(
+        system: String,
+        userMessage: String,
+        imageData: Data,
+        mediaType: String = "image/jpeg",
+        maxTokens: Int = 1024,
+        cacheKey: String? = nil
+    ) async throws -> String {
+        // Check cache first
+        if let key = cacheKey, let cached = cache[key] {
+            return String(data: cached, encoding: .utf8) ?? ""
+        }
+
+        guard isConfigured else {
+            throw ClaudeAPIError.notConfigured
+        }
+
+        let url = baseURL.appendingPathComponent("/v1/messages")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+
+        let base64Image = imageData.base64EncodedString()
+
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": maxTokens,
+            "system": system,
+            "messages": [
+                ["role": "user", "content": [
+                    [
+                        "type": "image",
+                        "source": [
+                            "type": "base64",
+                            "media_type": mediaType,
+                            "data": base64Image
+                        ]
+                    ],
+                    [
+                        "type": "text",
+                        "text": userMessage
+                    ]
+                ]]
+            ]
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ClaudeAPIError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw ClaudeAPIError.httpError(statusCode: httpResponse.statusCode, body: errorBody)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let content = json["content"] as? [[String: Any]],
+              let firstBlock = content.first,
+              let text = firstBlock["text"] as? String else {
+            throw ClaudeAPIError.unexpectedFormat
+        }
+
+        if let key = cacheKey {
+            cache[key] = text.data(using: .utf8)
+        }
+
+        return text
+    }
+
     /// Send a message to Claude and return the text response.
     func sendMessage(
         system: String,
