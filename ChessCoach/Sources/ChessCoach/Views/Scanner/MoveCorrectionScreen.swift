@@ -194,10 +194,22 @@ struct MoveCorrectionScreen: View {
                 .frame(width: DesignSystem.Layout.minTouchTarget, height: DesignSystem.Layout.minTouchTarget)
             }
 
-            // Suggestions
+            // Auto-correction notice
+            if move.status == .suspicious {
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 12))
+                    Text("Auto-corrected — tap to verify or change")
+                        .font(DesignSystem.Fonts.caption(12))
+                        .foregroundColor(.orange)
+                }
+            }
+
+            // Suggestions (most likely legal moves)
             if !viewModel.suggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Suggestions:")
+                    Text(move.status == .illegal ? "Did you mean:" : "Alternatives:")
                         .font(DesignSystem.Fonts.caption(12))
                         .foregroundColor(DesignSystem.Colors.secondaryText)
 
@@ -235,7 +247,7 @@ struct MoveCorrectionScreen: View {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
-                    Text("\(viewModel.issueCount) issue\(viewModel.issueCount == 1 ? "" : "s") found")
+                    Text(viewModel.issueDescription)
                         .font(DesignSystem.Fonts.body(14))
                 }
 

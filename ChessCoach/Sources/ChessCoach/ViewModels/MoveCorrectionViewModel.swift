@@ -51,8 +51,37 @@ final class MoveCorrectionViewModel {
         scannedMoves.firstIndex { $0.status == .illegal || $0.status == .suspicious }
     }
 
-    /// Whether all moves are valid
+    /// Whether all moves are valid (or auto-corrected)
     var allValid: Bool { issueCount == 0 }
+
+    /// Count of auto-corrected (suspicious) moves
+    var suspiciousCount: Int {
+        scannedMoves.filter { $0.status == .suspicious }.count
+    }
+
+    /// Count of truly illegal moves
+    var illegalCount: Int {
+        scannedMoves.filter { $0.status == .illegal }.count
+    }
+
+    /// Human-readable issue description for the bottom bar
+    var issueDescription: String {
+        let illegal = illegalCount
+        let suspicious = suspiciousCount
+        var parts: [String] = []
+        if illegal > 0 { parts.append("\(illegal) unreadable") }
+        if suspicious > 0 { parts.append("\(suspicious) auto-corrected") }
+        return parts.joined(separator: ", ") + " — review needed"
+    }
+
+    /// Accept all auto-corrected moves, changing status from suspicious → valid
+    func acceptAllAutoCorrections() {
+        for i in 0..<scannedMoves.count {
+            if scannedMoves[i].status == .suspicious {
+                scannedMoves[i].status = .valid
+            }
+        }
+    }
 
     /// Suggestions for the currently selected move
     var suggestions: [ChessMove] {
@@ -67,7 +96,8 @@ final class MoveCorrectionViewModel {
         revalidateAll()
     }
 
-    /// Revalidate all moves from scratch, rebuilding positions
+    /// Revalidate all moves from scratch, rebuilding positions.
+    /// Attempts automatic correction of OCR errors using game-flow analysis.
     func revalidateAll() {
         positions = [.initial]
         var currentPos = BoardPosition.initial
@@ -80,7 +110,6 @@ final class MoveCorrectionViewModel {
             // Make sure position has right active color
             if currentPos.activeColor != expectedColor {
                 scannedMoves[i].status = .illegal
-                // Can't continue validation after an illegal move
                 for j in (i+1)..<scannedMoves.count {
                     scannedMoves[j].status = .illegal
                 }
@@ -92,14 +121,112 @@ final class MoveCorrectionViewModel {
                 currentPos = currentPos.applyingMove(move)
                 positions.append(currentPos)
             } else {
-                scannedMoves[i].status = .illegal
-                // Moves after an illegal move can't be validated
-                for j in (i+1)..<scannedMoves.count {
-                    scannedMoves[j].status = .illegal
+                // AUTO-CORRECTION: try OCR alternatives before giving up
+                if let (correctedSAN, correctedMove) = attemptAutoCorrection(
+                    original: scannedMoves[i].san,
+                    position: currentPos
+                ) {
+                    scannedMoves[i].san = correctedSAN
+                    scannedMoves[i].status = .suspicious  // mark as auto-corrected
+                    currentPos = currentPos.applyingMove(correctedMove)
+                    positions.append(currentPos)
+                } else {
+                    scannedMoves[i].status = .illegal
+                    for j in (i+1)..<scannedMoves.count {
+                        scannedMoves[j].status = .illegal
+                    }
+                    return
                 }
-                return
             }
         }
+    }
+
+    /// Try to auto-correct an illegal OCR move by testing common misreadings
+    /// against the current position's legal moves.
+    private func attemptAutoCorrection(
+        original: String,
+        position: BoardPosition
+    ) -> (String, ChessMove)? {
+        let cleaned = original
+            .replacingOccurrences(of: "+", with: "")
+            .replacingOccurrences(of: "#", with: "")
+
+        // Strategy 1: Try piece-letter confusion alternatives (Q↔B, N↔M, etc.)
+        let alternatives = ScoresheetOCR.ocrAlternatives(for: cleaned)
+        for alt in alternatives {
+            if let move = position.legalMove(forSAN: alt) {
+                return (alt, move)
+            }
+        }
+
+        // Strategy 2: Try adding/removing capture "x"
+        // Kids often omit "x" or add it spuriously
+        if cleaned.contains("x") {
+            let withoutCapture = cleaned.replacingOccurrences(of: "x", with: "")
+            if let move = position.legalMove(forSAN: withoutCapture) {
+                return (withoutCapture, move)
+            }
+        } else if let first = cleaned.first, "KQRBN".contains(first), cleaned.count >= 3 {
+            // Try inserting "x" before the destination square
+            let insertPos = cleaned.index(cleaned.startIndex, offsetBy: 1)
+            let withCapture = String(cleaned[cleaned.startIndex]) + "x" + String(cleaned[insertPos...])
+            if let move = position.legalMove(forSAN: withCapture) {
+                return (withCapture, move)
+            }
+        } else if cleaned.count >= 3, cleaned.first?.isLowercase == true {
+            // Pawn capture: try inserting "x" after the file letter
+            let insertPos = cleaned.index(cleaned.startIndex, offsetBy: 1)
+            let withCapture = String(cleaned[cleaned.startIndex]) + "x" + String(cleaned[insertPos...])
+            if let move = position.legalMove(forSAN: withCapture) {
+                return (withCapture, move)
+            }
+        }
+
+        // Strategy 3: Swap confused file letters (f↔t, a↔o)
+        let fileSwaps: [(Character, Character)] = [
+            ("f", "t"), ("t", "f"),
+            ("a", "e"), ("e", "a"),
+            ("c", "e"), ("e", "c"),
+        ]
+        for (from, to) in fileSwaps {
+            let swapped = String(cleaned.map { $0 == from ? to : $0 })
+            if swapped != cleaned, let move = position.legalMove(forSAN: swapped) {
+                return (swapped, move)
+            }
+        }
+
+        // Strategy 4: Try digit confusions for ranks
+        let rankSwaps: [(Character, Character)] = [
+            ("1", "7"), ("7", "1"),
+            ("5", "6"), ("6", "5"),
+            ("5", "8"), ("8", "5"),
+            ("3", "8"), ("8", "3"),
+            ("6", "8"), ("8", "6"),
+        ]
+        for (from, to) in rankSwaps {
+            let swapped = String(cleaned.map { $0 == from ? to : $0 })
+            if swapped != cleaned, let move = position.legalMove(forSAN: swapped) {
+                return (swapped, move)
+            }
+        }
+
+        // Strategy 5: Combined — piece swap + capture toggle
+        for alt in alternatives {
+            if alt.contains("x") {
+                let withoutCapture = alt.replacingOccurrences(of: "x", with: "")
+                if let move = position.legalMove(forSAN: withoutCapture) {
+                    return (withoutCapture, move)
+                }
+            } else if alt.count >= 3 {
+                let insertPos = alt.index(alt.startIndex, offsetBy: 1)
+                let withCapture = String(alt[alt.startIndex]) + "x" + String(alt[insertPos...])
+                if let move = position.legalMove(forSAN: withCapture) {
+                    return (withCapture, move)
+                }
+            }
+        }
+
+        return nil
     }
 
     /// Replace the SAN at a given index and revalidate

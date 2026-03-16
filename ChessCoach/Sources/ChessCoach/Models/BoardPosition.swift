@@ -639,23 +639,66 @@ struct BoardPosition: Equatable, Codable {
             .map { $0.0 }
     }
 
-    /// Simple character-level similarity score between two SAN strings
+    /// Known OCR/handwriting confusion pairs for piece letters
+    private static let confusablePieces: Set<Set<Character>> = [
+        ["Q", "B"],  // Most common: Q↔B in kids' writing
+        ["R", "B"],
+        ["R", "K"],
+        ["N", "M"],
+        ["N", "H"],
+    ]
+
+    /// Known OCR/handwriting confusion pairs for file letters and digits
+    private static let confusableChars: Set<Set<Character>> = [
+        ["f", "t"],
+        ["a", "o"],
+        ["1", "7"],
+        ["5", "6"],
+        ["5", "8"],
+        ["6", "8"],
+        ["3", "8"],
+    ]
+
+    /// Similarity score between two SAN strings, weighted for common OCR confusions
+    /// in children's handwriting. Higher = more similar.
     private func sanSimilarity(_ a: String, _ b: String) -> Int {
         let aChars = Array(a)
         let bChars = Array(b)
         var score = 0
 
-        // Bonus for same piece type (first char if uppercase)
-        if let af = aChars.first, let bf = bChars.first, af == bf {
-            score += 3
+        // Strong bonus for same piece type
+        if let af = aChars.first, let bf = bChars.first {
+            if af == bf {
+                score += 5
+            } else if Self.confusablePieces.contains([af, bf]) {
+                // Known handwriting confusion pair — still a good candidate
+                score += 3
+            }
         }
 
-        // Bonus for same destination square (last 2 chars typically)
+        // Bonus for same destination square (last 2 chars)
         if a.count >= 2 && b.count >= 2 {
             let aTail = String(a.suffix(2))
             let bTail = String(b.suffix(2))
-            if aTail == bTail { score += 4 }
+            if aTail == bTail {
+                score += 6
+            } else {
+                // Partial match on destination with confusion tolerance
+                let aT = Array(aTail)
+                let bT = Array(bTail)
+                if aT.count == 2 && bT.count == 2 {
+                    if aT[0] == bT[0] { score += 2 } // same file
+                    else if Self.confusableChars.contains([aT[0], bT[0]]) { score += 1 }
+                    if aT[1] == bT[1] { score += 2 } // same rank
+                    else if Self.confusableChars.contains([aT[1], bT[1]]) { score += 1 }
+                }
+            }
         }
+
+        // Bonus for capture match (both have "x" or neither does)
+        let aHasCapture = a.contains("x")
+        let bHasCapture = b.contains("x")
+        if aHasCapture == bHasCapture { score += 2 }
 
         // Bonus for same length
         if a.count == b.count { score += 1 }
@@ -667,7 +710,7 @@ struct BoardPosition: Equatable, Codable {
 
         // Penalty for edit distance
         let distance = editDistance(a, b)
-        score -= distance
+        score -= distance * 2
 
         return score
     }

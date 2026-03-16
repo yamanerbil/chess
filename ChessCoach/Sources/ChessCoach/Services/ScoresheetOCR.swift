@@ -87,25 +87,55 @@ enum ScoresheetOCR {
         }
 
         let systemPrompt = """
-        You are a chess scoresheet OCR system. Your job is to extract chess moves \
-        from photos of handwritten tournament scoresheets.
+        You are a chess scoresheet OCR system specialized in reading CHILDREN'S \
+        handwriting from tournament scoresheets. Kids aged 5-15 write quickly during \
+        games with messy, inconsistent handwriting.
 
-        RULES:
+        CRITICAL — HANDWRITING CONFUSIONS IN CHILDREN'S CHESS NOTATION:
+        - "Q" vs "B": Kids often write Q with an open bottom that looks like B. \
+        If a piece letter is ambiguous between Q and B, consider which move is \
+        LEGAL and makes CHESS SENSE in context. Qxe5 is far more common than Bxe5 \
+        in many positions. Always verify against the game flow.
+        - "N" vs "M" vs "H": The letter N (knight) is often written like M or H.
+        - "R" vs "B" vs "P": R can look like B when written hastily.
+        - "K" vs "R" vs "k": Uppercase K (king) can look like R.
+        - "f" vs "t": The file letter f is often written like t.
+        - "a" vs "o" vs "u": File letters are often ambiguous.
+        - "1" vs "7" vs "l": Ranks are often confused.
+        - "5" vs "6" vs "8": Curved digits are ambiguous in kids' writing.
+        - "x" (capture) is often omitted or looks like "+", "t", or "×".
+        - Check "+" is often omitted or looks like "t".
+        - Castling: Kids write "0-0" (zeros), "oo", "OO", "castle" etc.
+
+        GAME FLOW ANALYSIS — USE THIS TO DISAMBIGUATE:
+        - Mentally play through the game as you read each move.
+        - If a move looks illegal, re-examine the handwriting with the LEGAL moves \
+        in mind. The intended move is almost always a legal one.
+        - Consider typical chess patterns: development moves in the opening, \
+        captures and tactics in the middlegame, king activity in endgames.
+        - If two readings are both legal, prefer the one that makes more chess sense \
+        (e.g., a developing move over a random piece shuffle).
+        - Pay special attention to piece confusion: if "Bxe5" seems odd but "Qxe5" \
+        wins material, the child likely wrote "Qxe5".
+
+        OUTPUT RULES:
         1. Output ONLY the moves in standard algebraic notation (SAN), one per line
         2. Format: "1. e4 e5" (move number, dot, white move, black move)
         3. Use proper piece letters: K, Q, R, B, N (uppercase)
         4. Use proper file letters: a-h (lowercase) and rank numbers: 1-8
         5. Use "x" for captures, "+" for check, "#" for checkmate
         6. Use "O-O" for kingside castling, "O-O-O" for queenside castling
-        7. If a move is completely illegible, write "???" as a placeholder
+        7. If a move is completely illegible even with context, write "???" as placeholder
         8. Do NOT include annotations, comments, or evaluations
         9. If the scoresheet has a result (1-0, 0-1, 1/2-1/2), include it on the last line
-        10. Read carefully — handwritten scoresheets are often messy. Use your knowledge \
-        of chess to infer likely moves when handwriting is ambiguous.
         """
 
         let userMessage = """
-        Extract all chess moves from this handwritten scoresheet image. \
+        Extract all chess moves from this handwritten scoresheet image. This is a \
+        child's tournament scoresheet — the handwriting may be messy and rushed. \
+        Play through the game mentally as you read to verify each move is legal. \
+        If a letter is ambiguous (especially Q vs B, N vs M, R vs B), choose the \
+        reading that produces a legal and sensible chess move. \
         Output only the moves in standard algebraic notation, numbered sequentially.
         """
 
@@ -198,13 +228,44 @@ enum ScoresheetOCR {
         return sans.map { correctOCRMove($0) }
     }
 
+    /// Common piece-letter confusions in kids' handwriting and OCR.
+    /// Maps commonly misread characters to their likely intended piece letter.
+    static let pieceConfusions: [Character: [Character]] = [
+        "B": ["Q", "R"],       // B often misread Q (open bottom) or R
+        "Q": ["B", "O"],       // Q can look like B or O
+        "R": ["B", "K"],       // R can look like B or K
+        "N": ["M", "H", "W"],  // N looks like M, H, or W in kids' writing
+        "K": ["R", "k"],       // K can look like R
+    ]
+
+    /// Generate alternative readings of a move by swapping confusable piece letters
+    static func ocrAlternatives(for san: String) -> [String] {
+        var alternatives: [String] = []
+        guard let first = san.first, "KQRBN".contains(first) else { return alternatives }
+
+        // Try swapping the piece letter with each confusion
+        if let confusions = pieceConfusions[first] {
+            for alt in confusions {
+                alternatives.append(String(alt) + String(san.dropFirst()))
+            }
+        }
+        // Also try every other piece letter not already covered
+        for piece in ["K", "Q", "R", "B", "N"] as [Character] {
+            if piece != first {
+                let alt = String(piece) + String(san.dropFirst())
+                if !alternatives.contains(alt) {
+                    alternatives.append(alt)
+                }
+            }
+        }
+        return alternatives
+    }
+
     /// Fix common OCR misreads in individual chess moves
     private static func correctOCRMove(_ san: String) -> String {
         var move = san
 
-        // Fix common piece letter confusions
-        // "8" often misread as "B" (bishop) — but only at start
-        // "K" sometimes misread as "k"
+        // Fix common piece letter confusions — capitalize lowercase piece letters
         if let first = move.first, first.isLowercase, "kqrbn".contains(first) {
             // Capitalize piece letters (but not file letters a-h)
             if !"abcdefgh".contains(first) {
@@ -218,6 +279,26 @@ enum ScoresheetOCR {
 
         // Fix check symbols
         move = move.replacingOccurrences(of: "†", with: "+")
+
+        // Common digit/letter confusions in kids' handwriting
+        // "t" → "f" (file letter), but only in positions where a file letter is expected
+        // "s" → "5", "b" → "6" when in rank position (after a file letter)
+        let chars = Array(move)
+        var fixed: [Character] = []
+        for (i, ch) in chars.enumerated() {
+            if i > 0 && "abcdefgh".contains(chars[i-1]) {
+                // Position after a file letter = likely a rank digit
+                switch ch {
+                case "s", "S": fixed.append("5")
+                case "b" where i >= 2: fixed.append("6") // "b" as rank, not file
+                case "g" where i >= 2: fixed.append("9") // not valid, keep for filtering
+                default: fixed.append(ch)
+                }
+            } else {
+                fixed.append(ch)
+            }
+        }
+        move = String(fixed)
 
         // Remove stray characters that aren't part of chess notation
         let validChars = CharacterSet(charactersIn: "KQRBNabcdefgh12345678xO-=+#")
