@@ -3,9 +3,14 @@ import SwiftUI
 /// The main Game Review screen — the core screen of ChessCoach
 struct GameReviewScreen: View {
     @State var viewModel: GameReviewViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     /// Minimum swipe distance to trigger a move
     private let swipeThreshold: CGFloat = 30
+
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,25 +19,11 @@ struct GameReviewScreen: View {
                 analysisProgressBanner
             }
 
-            // Content area
-            switch viewModel.selectedTab {
-            case .board:
-                boardTab
-            case .moves:
-                movesTab
-            case .report:
-                reportTab
+            if isIPad {
+                iPadLayout
+            } else {
+                iPhoneLayout
             }
-
-            // Segment control
-            Picker("Tab", selection: $viewModel.selectedTab) {
-                ForEach(GameReviewViewModel.ReviewTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
         }
         .background(DesignSystem.Colors.backgroundLight)
         .navigationBarTitleDisplayMode(.inline)
@@ -82,6 +73,140 @@ struct GameReviewScreen: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(DesignSystem.Colors.primary)
             }
+        }
+    }
+
+    // MARK: - iPhone Layout (existing tabbed layout)
+
+    private var iPhoneLayout: some View {
+        VStack(spacing: 0) {
+            switch viewModel.selectedTab {
+            case .board:
+                boardTab
+            case .moves:
+                movesTab
+            case .report:
+                reportTab
+            }
+
+            Picker("Tab", selection: $viewModel.selectedTab) {
+                ForEach(GameReviewViewModel.ReviewTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
+    }
+
+    // MARK: - iPad Layout (side-by-side)
+
+    private var iPadLayout: some View {
+        HStack(alignment: .top, spacing: 0) {
+            // Left panel: board + eval bar + navigation
+            VStack(spacing: 14) {
+                if viewModel.hasEngineAnalysis || !viewModel.liveAnnotations.isEmpty {
+                    EvalBarView(evaluation: viewModel.currentEval)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 4)
+                }
+
+                ChessBoardView(
+                    position: viewModel.currentPosition,
+                    playerColor: viewModel.game.playerColor,
+                    lastMoveFrom: viewModel.lastMove?.from,
+                    lastMoveTo: viewModel.lastMove?.to
+                )
+                .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
+                .gesture(
+                    DragGesture(minimumDistance: swipeThreshold)
+                        .onEnded { value in
+                            let horizontal = value.translation.width
+                            if horizontal < -swipeThreshold {
+                                viewModel.goForward()
+                            } else if horizontal > swipeThreshold {
+                                viewModel.goBackward()
+                            }
+                        }
+                )
+                .padding(.horizontal, 24)
+
+                MoveNavigationBar(
+                    currentMoveIndex: viewModel.currentMoveIndex,
+                    totalMoves: viewModel.game.moves.count,
+                    onGoToStart: { viewModel.goToStart() },
+                    onPrevious: { viewModel.goBackward() },
+                    onNext: { viewModel.goForward() },
+                    onGoToEnd: { viewModel.goToEnd() }
+                )
+                .padding(.horizontal, 24)
+
+                Spacer(minLength: 8)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+
+            // Right panel: move list + coaching card + report
+            VStack(spacing: 0) {
+                // Tab picker for right panel content
+                Picker("Tab", selection: $viewModel.selectedTab) {
+                    Text("Moves").tag(GameReviewViewModel.ReviewTab.moves)
+                    Text("Report").tag(GameReviewViewModel.ReviewTab.report)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+
+                switch viewModel.selectedTab {
+                case .board, .moves:
+                    iPadMovesPanel
+                case .report:
+                    reportTab
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    // MARK: - iPad Moves Panel (move list + coaching card)
+
+    private var iPadMovesPanel: some View {
+        VStack(spacing: 0) {
+            // Move list takes available space
+            MoveListView(
+                moves: viewModel.game.moves,
+                annotations: viewModel.liveAnnotations,
+                currentMoveIndex: viewModel.currentMoveIndex,
+                onSelectMove: { index in
+                    viewModel.goToMove(index)
+                }
+            )
+
+            Divider()
+
+            // Coaching card pinned at bottom
+            ScrollView {
+                VStack(spacing: 12) {
+                    if viewModel.currentAnnotation != nil || viewModel.lastMove != nil {
+                        MoveAnnotationCard(
+                            move: viewModel.lastMove,
+                            annotation: viewModel.currentAnnotation,
+                            moveIndex: viewModel.currentMoveIndex,
+                            hasCoaching: viewModel.currentMoveHasCoaching,
+                            isLoadingCoaching: viewModel.isLoadingCoaching,
+                            onRequestCoaching: viewModel.hasEngineAnalysis ? {
+                                Task { await viewModel.requestCoaching() }
+                            } : nil
+                        )
+                    } else if !viewModel.hasEngineAnalysis && viewModel.liveAnnotations.isEmpty {
+                        analyzePromptCard
+                    }
+                }
+                .padding(16)
+            }
+            .frame(maxHeight: 280)
         }
     }
 
@@ -396,8 +521,15 @@ struct GameReviewScreen: View {
     }
 }
 
-#Preview {
+#Preview("iPhone") {
     NavigationStack {
         GameReviewScreen(viewModel: GameReviewViewModel(game: SampleData.sampleGame))
     }
+}
+
+#Preview("iPad") {
+    NavigationStack {
+        GameReviewScreen(viewModel: GameReviewViewModel(game: SampleData.sampleGame))
+    }
+    .previewDevice("iPad Pro (12.9-inch) (6th generation)")
 }
