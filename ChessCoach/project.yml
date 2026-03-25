@@ -29,6 +29,19 @@ targets:
     dependencies:
       - package: ChessKitEngine
         product: ChessKitEngine
+    scheme:
+      testTargets:
+        - ChessCoachTests
+      environmentVariables:
+        - variable: ANTHROPIC_API_KEY
+          value: ${ANTHROPIC_API_KEY}
+          isEnabled: true
+        - variable: ELEVENLABS_API_KEY
+          value: ${ELEVENLABS_API_KEY}
+          isEnabled: true
+        - variable: ELEVENLABS_VOICE_ID
+          value: ${ELEVENLABS_VOICE_ID}
+          isEnabled: true
     settings:
       base:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
