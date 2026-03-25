@@ -35,11 +35,19 @@ final class VoiceCoachService {
     /// If already speaking, stops current playback first.
     func speak(text: String) async {
         stop()
+
+        // Trim and truncate to avoid hitting API limits
+        let cleanText = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(5000))
+        guard !cleanText.isEmpty else {
+            lastError = "No text to speak"
+            return
+        }
+
         isLoading = true
         lastError = nil
 
         do {
-            let audioData = try await client.synthesize(text: text)
+            let audioData = try await client.synthesize(text: cleanText)
             isLoading = false
 
             // Play the MP3 data
@@ -55,6 +63,7 @@ final class VoiceCoachService {
         } catch {
             isLoading = false
             lastError = error.localizedDescription
+            print("[VoiceCoach] TTS error: \(error)")
         }
     }
 

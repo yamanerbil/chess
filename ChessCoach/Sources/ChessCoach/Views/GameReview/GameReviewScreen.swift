@@ -354,22 +354,32 @@ struct GameReviewScreen: View {
     // MARK: - Coaching Annotation Card (shared between layouts)
 
     private var coachingAnnotationCard: some View {
-        MoveAnnotationCard(
-            move: viewModel.lastMove,
-            annotation: viewModel.currentAnnotation,
-            moveIndex: viewModel.currentMoveIndex,
-            hasCoaching: viewModel.currentMoveHasCoaching,
-            isLoadingCoaching: viewModel.isLoadingCoaching,
-            onRequestCoaching: viewModel.hasEngineAnalysis ? {
-                Task { await viewModel.requestCoaching() }
-            } : nil,
-            isSpeaking: viewModel.voiceCoach.isSpeaking,
-            isLoadingVoice: viewModel.voiceCoach.isLoading,
-            onSpeak: viewModel.voiceCoach.isConfigured ? {
-                Task { await viewModel.speakCurrentCoaching() }
-            } : nil,
-            onStopSpeaking: { viewModel.stopSpeaking() }
-        )
+        VStack(spacing: 4) {
+            MoveAnnotationCard(
+                move: viewModel.lastMove,
+                annotation: viewModel.currentAnnotation,
+                moveIndex: viewModel.currentMoveIndex,
+                hasCoaching: viewModel.currentMoveHasCoaching,
+                isLoadingCoaching: viewModel.isLoadingCoaching,
+                onRequestCoaching: viewModel.hasEngineAnalysis ? {
+                    Task { await viewModel.requestCoaching() }
+                } : nil,
+                isSpeaking: viewModel.voiceCoach.isSpeaking,
+                isLoadingVoice: viewModel.voiceCoach.isLoading,
+                onSpeak: viewModel.voiceCoach.isConfigured ? {
+                    Task { await viewModel.speakCurrentCoaching() }
+                } : nil,
+                onStopSpeaking: { viewModel.stopSpeaking() }
+            )
+
+            // Show voice error if any
+            if let voiceError = viewModel.voiceCoach.lastError {
+                Text(voiceError)
+                    .font(.caption2)
+                    .foregroundColor(DesignSystem.Colors.error)
+                    .padding(.horizontal, 8)
+            }
+        }
     }
 
     // MARK: - Move Chip List

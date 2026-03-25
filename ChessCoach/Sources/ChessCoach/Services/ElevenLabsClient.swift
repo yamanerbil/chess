@@ -51,7 +51,9 @@ actor ElevenLabsClient {
         }
 
         let url = baseURL
-            .appendingPathComponent("/v1/text-to-speech/\(voiceId)")
+            .appendingPathComponent("v1")
+            .appendingPathComponent("text-to-speech")
+            .appendingPathComponent(voiceId)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -72,6 +74,8 @@ actor ElevenLabsClient {
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
+        print("[ElevenLabs] POST \(url.absoluteString) (\(text.count) chars)")
+
         let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -80,8 +84,11 @@ actor ElevenLabsClient {
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            print("[ElevenLabs] Error \(httpResponse.statusCode): \(errorBody.prefix(200))")
             throw ElevenLabsError.httpError(statusCode: httpResponse.statusCode, body: errorBody)
         }
+
+        print("[ElevenLabs] Success: \(data.count) bytes")
 
         // Cache the result
         cache[cacheKey] = data
