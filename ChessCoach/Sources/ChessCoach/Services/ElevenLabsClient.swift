@@ -10,7 +10,7 @@ actor ElevenLabsClient {
     private let session: URLSession
 
     /// In-memory cache of synthesized audio keyed by text hash
-    private var cache: [String: Data] = []
+    private var cache: [String: Data] = [:]
 
     init(
         apiKey: String? = nil,
