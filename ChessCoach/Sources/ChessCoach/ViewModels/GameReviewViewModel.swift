@@ -31,6 +31,9 @@ final class GameReviewViewModel {
     /// The coaching service for Claude API explanations
     let coachService: ClaudeCoachService
 
+    /// Voice coaching service for ElevenLabs TTS
+    let voiceCoach: VoiceCoachService
+
     /// Player profile for age/rating-calibrated coaching
     var playerProfile: CoachingProfile
 
@@ -85,6 +88,23 @@ final class GameReviewViewModel {
         currentAnnotation?.evalAfter ?? 0.0
     }
 
+    /// Best move as a ChessMove (for arrow overlay), resolved from annotation SAN.
+    /// Only returns a value when the best move differs from the played move
+    /// and the move was an inaccuracy, mistake, or blunder.
+    var bestMoveChessMove: ChessMove? {
+        guard let annotation = currentAnnotation,
+              let bestSAN = annotation.bestMove,
+              let lastMove = lastMove,
+              bestSAN != lastMove.san,
+              annotation.classification == .inaccuracy
+                || annotation.classification == .mistake
+                || annotation.classification == .blunder else { return nil }
+        // Use the position BEFORE the move was played to find the legal move
+        guard currentMoveIndex > 0 else { return nil }
+        let positionBefore = game.positions[currentMoveIndex - 1]
+        return positionBefore.legalMove(forSAN: bestSAN)
+    }
+
     /// Whether we're at the starting position
     var isAtStart: Bool { currentMoveIndex == 0 }
 
@@ -132,11 +152,13 @@ final class GameReviewViewModel {
         game: Game,
         analysisService: GameAnalysisService = GameAnalysisService(),
         coachService: ClaudeCoachService = ClaudeCoachService(),
+        voiceCoach: VoiceCoachService = VoiceCoachService(),
         playerProfile: CoachingProfile = .default
     ) {
         self.game = game
         self.analysisService = analysisService
         self.coachService = coachService
+        self.voiceCoach = voiceCoach
         self.playerProfile = playerProfile
         self.liveAnnotations = game.annotations
         // If the game already has annotations (e.g. sample data), mark as analyzed
@@ -209,6 +231,29 @@ final class GameReviewViewModel {
     /// Whether the current move has Claude coaching (not just placeholder)
     var currentMoveHasCoaching: Bool {
         currentMoveIndex > 0 && coachedMoveIndices.contains(currentMoveIndex - 1)
+    }
+
+    // MARK: - Voice Coaching
+
+    /// Speak the current move's coaching explanation aloud
+    func speakCurrentCoaching() async {
+        guard let annotation = currentAnnotation else { return }
+        await voiceCoach.speak(text: annotation.explanation)
+    }
+
+    /// Stop voice playback
+    func stopSpeaking() {
+        voiceCoach.stop()
+    }
+
+    /// Speak the full game report summary
+    func speakGameReport() async {
+        guard let report = gameReport else { return }
+        let text = [
+            report.summary,
+            report.encouragement
+        ].joined(separator: " ")
+        await voiceCoach.speak(text: text)
     }
 
     /// Generate a full game coaching report via Claude.

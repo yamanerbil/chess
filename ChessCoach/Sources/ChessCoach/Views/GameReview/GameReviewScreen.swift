@@ -116,7 +116,9 @@ struct GameReviewScreen: View {
                     position: viewModel.currentPosition,
                     playerColor: viewModel.game.playerColor,
                     lastMoveFrom: viewModel.lastMove?.from,
-                    lastMoveTo: viewModel.lastMove?.to
+                    lastMoveTo: viewModel.lastMove?.to,
+                    bestMoveFrom: viewModel.bestMoveChessMove?.from,
+                    bestMoveTo: viewModel.bestMoveChessMove?.to
                 )
                 .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
                 .gesture(
@@ -190,16 +192,7 @@ struct GameReviewScreen: View {
             ScrollView {
                 VStack(spacing: 12) {
                     if viewModel.currentAnnotation != nil || viewModel.lastMove != nil {
-                        MoveAnnotationCard(
-                            move: viewModel.lastMove,
-                            annotation: viewModel.currentAnnotation,
-                            moveIndex: viewModel.currentMoveIndex,
-                            hasCoaching: viewModel.currentMoveHasCoaching,
-                            isLoadingCoaching: viewModel.isLoadingCoaching,
-                            onRequestCoaching: viewModel.hasEngineAnalysis ? {
-                                Task { await viewModel.requestCoaching() }
-                            } : nil
-                        )
+                        coachingAnnotationCard
                     } else if !viewModel.hasEngineAnalysis && viewModel.liveAnnotations.isEmpty {
                         analyzePromptCard
                     }
@@ -274,7 +267,9 @@ struct GameReviewScreen: View {
                     position: viewModel.currentPosition,
                     playerColor: viewModel.game.playerColor,
                     lastMoveFrom: viewModel.lastMove?.from,
-                    lastMoveTo: viewModel.lastMove?.to
+                    lastMoveTo: viewModel.lastMove?.to,
+                    bestMoveFrom: viewModel.bestMoveChessMove?.from,
+                    bestMoveTo: viewModel.bestMoveChessMove?.to
                 )
                 .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
                 .gesture(
@@ -296,17 +291,8 @@ struct GameReviewScreen: View {
 
                 // Coaching annotation card or analyze prompt
                 if viewModel.currentAnnotation != nil || viewModel.lastMove != nil {
-                    MoveAnnotationCard(
-                        move: viewModel.lastMove,
-                        annotation: viewModel.currentAnnotation,
-                        moveIndex: viewModel.currentMoveIndex,
-                        hasCoaching: viewModel.currentMoveHasCoaching,
-                        isLoadingCoaching: viewModel.isLoadingCoaching,
-                        onRequestCoaching: viewModel.hasEngineAnalysis ? {
-                            Task { await viewModel.requestCoaching() }
-                        } : nil
-                    )
-                    .padding(.horizontal, 16)
+                    coachingAnnotationCard
+                        .padding(.horizontal, 16)
                 } else if !viewModel.hasEngineAnalysis && viewModel.liveAnnotations.isEmpty {
                     analyzePromptCard
                         .padding(.horizontal, 16)
@@ -363,6 +349,27 @@ struct GameReviewScreen: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Coaching Annotation Card (shared between layouts)
+
+    private var coachingAnnotationCard: some View {
+        MoveAnnotationCard(
+            move: viewModel.lastMove,
+            annotation: viewModel.currentAnnotation,
+            moveIndex: viewModel.currentMoveIndex,
+            hasCoaching: viewModel.currentMoveHasCoaching,
+            isLoadingCoaching: viewModel.isLoadingCoaching,
+            onRequestCoaching: viewModel.hasEngineAnalysis ? {
+                Task { await viewModel.requestCoaching() }
+            } : nil,
+            isSpeaking: viewModel.voiceCoach.isSpeaking,
+            isLoadingVoice: viewModel.voiceCoach.isLoading,
+            onSpeak: viewModel.voiceCoach.isConfigured ? {
+                Task { await viewModel.speakCurrentCoaching() }
+            } : nil,
+            onStopSpeaking: { viewModel.stopSpeaking() }
+        )
     }
 
     // MARK: - Move Chip List
@@ -516,7 +523,13 @@ struct GameReviewScreen: View {
             onJumpToMove: { moveIndex in
                 viewModel.goToMove(moveIndex)
                 viewModel.selectedTab = .board
-            }
+            },
+            isSpeaking: viewModel.voiceCoach.isSpeaking,
+            isLoadingVoice: viewModel.voiceCoach.isLoading,
+            onSpeakReport: viewModel.voiceCoach.isConfigured && viewModel.gameReport != nil ? {
+                Task { await viewModel.speakGameReport() }
+            } : nil,
+            onStopSpeaking: { viewModel.stopSpeaking() }
         )
     }
 }

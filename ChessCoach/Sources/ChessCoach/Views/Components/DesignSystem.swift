@@ -24,6 +24,7 @@ enum DesignSystem {
         static let backgroundLight = Color(red: 0.96, green: 0.97, blue: 0.98) // #F5F7FA
         static let backgroundDark = Color(red: 0.102, green: 0.102, blue: 0.180) // #1A1A2E
 
+        static let bestMoveArrow = Color(red: 0.30, green: 0.75, blue: 0.30) // Green arrow
         static let cardBackground = Color.white
         static let secondaryText = Color.secondary
     }
@@ -83,19 +84,17 @@ struct PieceIconView: View {
     var body: some View {
         ZStack {
             if piece.color == .white {
-                // Black outline layer (rendered slightly larger via shadows)
+                // Black outline layer
                 Text(symbol)
                     .font(.system(size: size * 0.85))
                     .foregroundColor(.black)
-                    .shadow(color: .black, radius: 0, x: 0.5, y: 0)
-                    .shadow(color: .black, radius: 0, x: -0.5, y: 0)
-                    .shadow(color: .black, radius: 0, x: 0, y: 0.5)
-                    .shadow(color: .black, radius: 0, x: 0, y: -0.5)
+                    .shadow(color: .black, radius: 0.5, x: 0, y: 0)
 
-                // White fill layer on top
+                // White fill layer on top — MUST match outline size for full coverage
                 Text(symbol)
-                    .font(.system(size: size * 0.82))
+                    .font(.system(size: size * 0.85))
                     .foregroundColor(.white)
+                    .scaleEffect(0.92)
             } else {
                 // Solid dark piece with subtle outline
                 Text(symbol)

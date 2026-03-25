@@ -10,6 +10,11 @@ struct CoachingReportView: View {
     /// Callback to request a Claude report
     var onRequestReport: (() -> Void)?
     let onJumpToMove: (Int) -> Void
+    /// Voice coaching callbacks
+    var isSpeaking: Bool = false
+    var isLoadingVoice: Bool = false
+    var onSpeakReport: (() -> Void)?
+    var onStopSpeaking: (() -> Void)?
 
     private var playerMoves: [(offset: Int, element: ChessMove)] {
         Array(game.moves.enumerated().filter { $0.element.color == game.playerColor })
@@ -436,6 +441,40 @@ struct CoachingReportView: View {
                     .foregroundColor(DesignSystem.Colors.accent)
                 Text("AI Coaching Report")
                     .font(DesignSystem.Fonts.headline(16))
+
+                Spacer()
+
+                // Listen to report button
+                if let onSpeak = onSpeakReport {
+                    Button {
+                        if isSpeaking {
+                            onStopSpeaking?()
+                        } else {
+                            onSpeak()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if isLoadingVoice {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                            } else {
+                                Image(systemName: isSpeaking ? "stop.fill" : "speaker.wave.2.fill")
+                                    .font(.system(size: 12))
+                            }
+                            Text(isSpeaking ? "Stop" : "Listen")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(isSpeaking ? DesignSystem.Colors.error : DesignSystem.Colors.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule()
+                                .fill((isSpeaking ? DesignSystem.Colors.error : DesignSystem.Colors.primary).opacity(0.1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLoadingVoice)
+                }
             }
 
             Text(report.summary)

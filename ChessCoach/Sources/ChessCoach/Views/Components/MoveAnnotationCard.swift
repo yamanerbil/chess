@@ -11,6 +11,11 @@ struct MoveAnnotationCard: View {
     var isLoadingCoaching: Bool = false
     /// Callback to request Claude coaching for this move
     var onRequestCoaching: (() -> Void)?
+    /// Voice coaching state
+    var isSpeaking: Bool = false
+    var isLoadingVoice: Bool = false
+    var onSpeak: (() -> Void)?
+    var onStopSpeaking: (() -> Void)?
     @State private var showEngineLines = false
 
     var body: some View {
@@ -43,6 +48,32 @@ struct MoveAnnotationCard: View {
                                 )
 
                             Spacer()
+
+                            // Speaker button for voice coaching
+                            if let onSpeak = onSpeak {
+                                Button {
+                                    if isSpeaking {
+                                        onStopSpeaking?()
+                                    } else {
+                                        onSpeak()
+                                    }
+                                } label: {
+                                    Group {
+                                        if isLoadingVoice {
+                                            ProgressView()
+                                                .scaleEffect(0.6)
+                                        } else {
+                                            Image(systemName: isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")
+                                                .font(.system(size: 16))
+                                                .foregroundColor(isSpeaking ? DesignSystem.Colors.error : DesignSystem.Colors.primary)
+                                                .symbolEffect(.variableColor.iterative, isActive: isSpeaking)
+                                        }
+                                    }
+                                    .frame(width: 32, height: 32)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(isLoadingVoice)
+                            }
                         }
 
                         // Explanation text with bold move notation

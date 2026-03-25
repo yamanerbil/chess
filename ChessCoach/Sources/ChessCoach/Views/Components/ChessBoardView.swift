@@ -6,6 +6,8 @@ struct ChessBoardView: View {
     let playerColor: PieceColor
     let lastMoveFrom: Square?
     let lastMoveTo: Square?
+    var bestMoveFrom: Square? = nil
+    var bestMoveTo: Square? = nil
     var showCoordinates: Bool = true
 
     /// Whether the board is flipped (showing from black's perspective)
@@ -18,22 +20,30 @@ struct ChessBoardView: View {
             let boardSize = min(geometry.size.width, geometry.size.height)
             let squareSize = boardSize / 8
 
-            VStack(spacing: 0) {
-                ForEach(0..<8, id: \.self) { row in
-                    HStack(spacing: 0) {
-                        ForEach(0..<8, id: \.self) { col in
-                            let file = isFlipped ? (7 - col) : col
-                            let rank = isFlipped ? row : (7 - row)
-                            let square = Square(file: file, rank: rank)
+            ZStack {
+                // Board squares and pieces
+                VStack(spacing: 0) {
+                    ForEach(0..<8, id: \.self) { row in
+                        HStack(spacing: 0) {
+                            ForEach(0..<8, id: \.self) { col in
+                                let file = isFlipped ? (7 - col) : col
+                                let rank = isFlipped ? row : (7 - row)
+                                let square = Square(file: file, rank: rank)
 
-                            squareView(
-                                square: square,
-                                size: squareSize,
-                                row: row,
-                                col: col
-                            )
+                                squareView(
+                                    square: square,
+                                    size: squareSize,
+                                    row: row,
+                                    col: col
+                                )
+                            }
                         }
                     }
+                }
+
+                // Best move arrow overlay
+                if let from = bestMoveFrom, let to = bestMoveTo {
+                    bestMoveArrow(from: from, to: to, squareSize: squareSize)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -41,6 +51,76 @@ struct ChessBoardView: View {
         }
         .aspectRatio(1, contentMode: .fit)
     }
+
+    // MARK: - Best Move Arrow
+
+    private func bestMoveArrow(from: Square, to: Square, squareSize: CGFloat) -> some View {
+        let fromPoint = squareCenter(from, squareSize: squareSize)
+        let toPoint = squareCenter(to, squareSize: squareSize)
+
+        return Canvas { context, _ in
+            let arrowWidth: CGFloat = squareSize * 0.18
+            let headLength: CGFloat = squareSize * 0.4
+            let headWidth: CGFloat = squareSize * 0.4
+
+            // Direction vector
+            let dx = toPoint.x - fromPoint.x
+            let dy = toPoint.y - fromPoint.y
+            let length = sqrt(dx * dx + dy * dy)
+            guard length > 0 else { return }
+            let ux = dx / length
+            let uy = dy / length
+
+            // Perpendicular
+            let px = -uy
+            let py = ux
+
+            // Shaft end (where the head starts)
+            let shaftEnd = CGPoint(x: toPoint.x - ux * headLength, y: toPoint.y - uy * headLength)
+
+            // Build arrow path
+            var path = Path()
+
+            // Shaft (rectangle from fromPoint to shaftEnd)
+            let shaftHalf = arrowWidth / 2
+            path.move(to: CGPoint(x: fromPoint.x + px * shaftHalf, y: fromPoint.y + py * shaftHalf))
+            path.addLine(to: CGPoint(x: shaftEnd.x + px * shaftHalf, y: shaftEnd.y + py * shaftHalf))
+
+            // Head (triangle)
+            path.addLine(to: CGPoint(x: shaftEnd.x + px * headWidth, y: shaftEnd.y + py * headWidth))
+            path.addLine(to: toPoint)
+            path.addLine(to: CGPoint(x: shaftEnd.x - px * headWidth, y: shaftEnd.y - py * headWidth))
+
+            // Back to shaft
+            path.addLine(to: CGPoint(x: shaftEnd.x - px * shaftHalf, y: shaftEnd.y - py * shaftHalf))
+            path.addLine(to: CGPoint(x: fromPoint.x - px * shaftHalf, y: fromPoint.y - py * shaftHalf))
+            path.closeSubpath()
+
+            // Draw with semi-transparent green fill and white border
+            context.fill(path, with: .color(DesignSystem.Colors.bestMoveArrow.opacity(0.8)))
+            context.stroke(path, with: .color(.white.opacity(0.9)), lineWidth: 1.5)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// Convert a chess Square to a CGPoint center on the board
+    private func squareCenter(_ square: Square, squareSize: CGFloat) -> CGPoint {
+        let col: CGFloat
+        let row: CGFloat
+        if isFlipped {
+            col = CGFloat(7 - square.file)
+            row = CGFloat(square.rank)
+        } else {
+            col = CGFloat(square.file)
+            row = CGFloat(7 - square.rank)
+        }
+        return CGPoint(
+            x: col * squareSize + squareSize / 2,
+            y: row * squareSize + squareSize / 2
+        )
+    }
+
+    // MARK: - Square View
 
     @ViewBuilder
     private func squareView(square: Square, size: CGFloat, row: Int, col: Int) -> some View {
