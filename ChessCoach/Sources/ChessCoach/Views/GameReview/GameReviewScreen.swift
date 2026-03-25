@@ -531,5 +531,5 @@ struct GameReviewScreen: View {
     NavigationStack {
         GameReviewScreen(viewModel: GameReviewViewModel(game: SampleData.sampleGame))
     }
-    .previewDevice("iPad Pro (12.9-inch) (6th generation)")
+    .environment(\.horizontalSizeClass, .regular)
 }
