@@ -139,6 +139,9 @@ final class GameReviewViewModel {
         self.coachService = coachService
         self.playerProfile = playerProfile
         self.liveAnnotations = game.annotations
+        // If the game already has annotations (e.g. sample data), mark as analyzed
+        // so the "Get AI coaching" button appears
+        self.hasEngineAnalysis = !game.annotations.isEmpty
     }
 
     // MARK: - Engine Analysis

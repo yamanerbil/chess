@@ -23,21 +23,15 @@ final class ChessKitStockfishEngine: ChessEngine, @unchecked Sendable {
         let engine = Engine(type: .stockfish)
         self.engine = engine
 
-        // Wait for engine to be ready
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            Task {
-                guard let stream = await engine.responseStream else {
-                    continuation.resume()
-                    return
+        // Start the engine and wait for readyok
+        await engine.start()
+        await engine.send(command: .isready)
+
+        if let stream = await engine.responseStream {
+            for await response in stream {
+                if case .readyok = response {
+                    break
                 }
-                await engine.start()
-                for await response in stream {
-                    if case .readyok = response {
-                        continuation.resume()
-                        return
-                    }
-                }
-                continuation.resume()
             }
         }
 
@@ -61,57 +55,44 @@ final class ChessKitStockfishEngine: ChessEngine, @unchecked Sendable {
         await engine.send(command: .go(depth: depth))
 
         // Collect responses until we get bestmove
-        return await withCheckedContinuation { continuation in
-            Task {
-                var lastScore: Double = 0
-                var lastMate: Int? = nil
-                var lastPV: [String] = []
+        var lastScore: Double = 0
+        var lastMate: Int? = nil
+        var lastPV: [String] = []
 
-                guard let stream = await engine.responseStream else {
-                    continuation.resume(returning: StockfishResult(score: 0, bestLine: [], mate: nil))
-                    return
-                }
+        guard let stream = await engine.responseStream else {
+            return StockfishResult(score: 0, bestLine: [], mate: nil)
+        }
 
-                for await response in stream {
-                    switch response {
-                    case .info(let info):
-                        // Update score from the latest info line
-                        if let score = info.score {
-                            if let cp = score.cp {
-                                lastScore = Double(cp)
-                                lastMate = nil
-                            }
-                            if let mate = score.mate {
-                                lastMate = mate
-                                lastScore = mate > 0 ? StockfishResult.mateScore : -StockfishResult.mateScore
-                            }
-                        }
-                        if let pv = info.pv {
-                            lastPV = pv
-                        }
-
-                    case .bestmove:
-                        // Done — return accumulated result
-                        continuation.resume(returning: StockfishResult(
-                            score: lastScore,
-                            bestLine: lastPV,
-                            mate: lastMate
-                        ))
-                        return
-
-                    default:
-                        break
+        for await response in stream {
+            switch response {
+            case .info(let info):
+                if let score = info.score {
+                    if let cp = score.cp {
+                        lastScore = Double(cp)
+                        lastMate = nil
+                    }
+                    if let mate = score.mate {
+                        lastMate = mate
+                        lastScore = mate > 0 ? StockfishResult.mateScore : -StockfishResult.mateScore
                     }
                 }
+                if let pv = info.pv {
+                    lastPV = pv
+                }
 
-                // Stream ended without bestmove
-                continuation.resume(returning: StockfishResult(
+            case .bestmove:
+                return StockfishResult(
                     score: lastScore,
                     bestLine: lastPV,
                     mate: lastMate
-                ))
+                )
+
+            default:
+                break
             }
         }
+
+        return StockfishResult(score: lastScore, bestLine: lastPV, mate: lastMate)
     }
 
     func quit() async {
