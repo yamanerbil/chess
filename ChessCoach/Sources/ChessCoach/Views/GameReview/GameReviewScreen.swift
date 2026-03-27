@@ -44,6 +44,28 @@ struct GameReviewScreen: View {
                 analyzeToolbarButton
             }
         }
+        // DEBUG: voice state overlay — remove after debugging
+        .overlay(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Voice debug:")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                Text("configured: \(viewModel.voiceCoach.isConfigured ? "YES" : "NO")")
+                    .font(.system(size: 10, design: .monospaced))
+                Text("loading: \(viewModel.voiceCoach.isLoading ? "YES" : "NO")")
+                    .font(.system(size: 10, design: .monospaced))
+                Text("speaking: \(viewModel.voiceCoach.isSpeaking ? "YES" : "NO")")
+                    .font(.system(size: 10, design: .monospaced))
+                if let err = viewModel.voiceCoach.lastError {
+                    Text("err: \(err)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.red)
+                }
+            }
+            .padding(6)
+            .background(Color.yellow.opacity(0.9))
+            .cornerRadius(6)
+            .padding(.top, 4)
+        }
         .alert("Analysis Error", isPresented: .init(
             get: { viewModel.analysisError != nil },
             set: { if !$0 { viewModel.analysisError = nil } }
@@ -103,72 +125,76 @@ struct GameReviewScreen: View {
     // MARK: - iPad Layout (side-by-side)
 
     private var iPadLayout: some View {
-        HStack(alignment: .top, spacing: 0) {
-            // Left panel: board + eval bar + navigation
-            VStack(spacing: 14) {
-                if viewModel.hasEngineAnalysis || !viewModel.liveAnnotations.isEmpty {
-                    EvalBarView(evaluation: viewModel.currentEval)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 4)
-                }
+        GeometryReader { geometry in
+            let boardSide = min(geometry.size.width * 0.55, geometry.size.height - 100)
 
-                ChessBoardView(
-                    position: viewModel.currentPosition,
-                    playerColor: viewModel.game.playerColor,
-                    lastMoveFrom: viewModel.lastMove?.from,
-                    lastMoveTo: viewModel.lastMove?.to,
-                    bestMoveFrom: viewModel.bestMoveChessMove?.from,
-                    bestMoveTo: viewModel.bestMoveChessMove?.to
-                )
-                .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
-                .gesture(
-                    DragGesture(minimumDistance: swipeThreshold)
-                        .onEnded { value in
-                            let horizontal = value.translation.width
-                            if horizontal < -swipeThreshold {
-                                viewModel.goForward()
-                            } else if horizontal > swipeThreshold {
-                                viewModel.goBackward()
+            HStack(alignment: .top, spacing: 0) {
+                // Left panel: board + eval bar + navigation
+                VStack(spacing: 14) {
+                    if viewModel.hasEngineAnalysis || !viewModel.liveAnnotations.isEmpty {
+                        EvalBarView(evaluation: viewModel.currentEval)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 4)
+                    }
+
+                    ChessBoardView(
+                        position: viewModel.currentPosition,
+                        playerColor: viewModel.game.playerColor,
+                        lastMoveFrom: viewModel.lastMove?.from,
+                        lastMoveTo: viewModel.lastMove?.to,
+                        bestMoveFrom: viewModel.bestMoveChessMove?.from,
+                        bestMoveTo: viewModel.bestMoveChessMove?.to
+                    )
+                    .frame(width: boardSide, height: boardSide)
+                    .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
+                    .gesture(
+                        DragGesture(minimumDistance: swipeThreshold)
+                            .onEnded { value in
+                                let horizontal = value.translation.width
+                                if horizontal < -swipeThreshold {
+                                    viewModel.goForward()
+                                } else if horizontal > swipeThreshold {
+                                    viewModel.goBackward()
+                                }
                             }
-                        }
-                )
-                .padding(.horizontal, 24)
+                    )
 
-                MoveNavigationBar(
-                    currentMoveIndex: viewModel.currentMoveIndex,
-                    totalMoves: viewModel.game.moves.count,
-                    onGoToStart: { viewModel.goToStart() },
-                    onPrevious: { viewModel.goBackward() },
-                    onNext: { viewModel.goForward() },
-                    onGoToEnd: { viewModel.goToEnd() }
-                )
-                .padding(.horizontal, 24)
+                    MoveNavigationBar(
+                        currentMoveIndex: viewModel.currentMoveIndex,
+                        totalMoves: viewModel.game.moves.count,
+                        onGoToStart: { viewModel.goToStart() },
+                        onPrevious: { viewModel.goBackward() },
+                        onNext: { viewModel.goForward() },
+                        onGoToEnd: { viewModel.goToEnd() }
+                    )
+                    .padding(.horizontal, 24)
 
-                Spacer(minLength: 8)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Divider()
-
-            // Right panel: move list + coaching card + report
-            VStack(spacing: 0) {
-                // Tab picker for right panel content
-                Picker("Tab", selection: $viewModel.selectedTab) {
-                    Text("Moves").tag(GameReviewViewModel.ReviewTab.moves)
-                    Text("Report").tag(GameReviewViewModel.ReviewTab.report)
+                    Spacer(minLength: 8)
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .frame(width: geometry.size.width * 0.55)
 
-                switch viewModel.selectedTab {
-                case .board, .moves:
-                    iPadMovesPanel
-                case .report:
-                    reportTab
+                Divider()
+
+                // Right panel: move list + coaching card + report
+                VStack(spacing: 0) {
+                    // Tab picker for right panel content
+                    Picker("Tab", selection: $viewModel.selectedTab) {
+                        Text("Moves").tag(GameReviewViewModel.ReviewTab.moves)
+                        Text("Report").tag(GameReviewViewModel.ReviewTab.report)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+
+                    switch viewModel.selectedTab {
+                    case .board, .moves:
+                        iPadMovesPanel
+                    case .report:
+                        reportTab
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

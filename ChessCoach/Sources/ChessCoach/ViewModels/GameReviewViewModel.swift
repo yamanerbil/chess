@@ -1,7 +1,11 @@
 import SwiftUI
 import Observation
+import os
+
+private let logger = Logger(subsystem: "com.evaschesscoach.app", category: "GameReview")
 
 /// View model for the Game Review screen
+@MainActor
 @Observable
 final class GameReviewViewModel {
     private(set) var game: Game
@@ -152,13 +156,13 @@ final class GameReviewViewModel {
         game: Game,
         analysisService: GameAnalysisService = GameAnalysisService(),
         coachService: ClaudeCoachService = ClaudeCoachService(),
-        voiceCoach: VoiceCoachService = VoiceCoachService(),
+        voiceCoach: VoiceCoachService? = nil,
         playerProfile: CoachingProfile = .default
     ) {
         self.game = game
         self.analysisService = analysisService
         self.coachService = coachService
-        self.voiceCoach = voiceCoach
+        self.voiceCoach = voiceCoach ?? VoiceCoachService()
         self.playerProfile = playerProfile
         self.liveAnnotations = game.annotations
         // If the game already has annotations (e.g. sample data), mark as analyzed
@@ -221,6 +225,14 @@ final class GameReviewViewModel {
         ) {
             liveAnnotations[moveIdx] = updated
             coachedMoveIndices.insert(moveIdx)
+
+            // Auto-play voice coaching if configured
+            logger.notice("[GameReview] coaching received, voiceCoach.isConfigured: \(self.voiceCoach.isConfigured)")
+            if voiceCoach.isConfigured {
+                let settings = voiceSettingsForClassification(updated.classification)
+                logger.notice("[GameReview] calling speak with classification: \(updated.classification.rawValue)")
+                await voiceCoach.speak(text: updated.explanation, voiceSettings: settings)
+            }
         }
 
         if let error = coachService.lastError {
@@ -238,7 +250,14 @@ final class GameReviewViewModel {
     /// Speak the current move's coaching explanation aloud
     func speakCurrentCoaching() async {
         guard let annotation = currentAnnotation else { return }
-        await voiceCoach.speak(text: annotation.explanation)
+        let settings = voiceSettingsForClassification(annotation.classification)
+        await voiceCoach.speak(text: annotation.explanation, voiceSettings: settings)
+    }
+
+    /// Compute voice settings: move classification tone + game outcome shift
+    private func voiceSettingsForClassification(_ classification: MoveClassification) -> VoiceSettings {
+        VoiceSettings.forClassification(classification)
+            .adjustedForOutcome(playerWon: game.playerWon, playerLost: game.playerLost)
     }
 
     /// Stop voice playback
@@ -249,11 +268,14 @@ final class GameReviewViewModel {
     /// Speak the full game report summary
     func speakGameReport() async {
         guard let report = gameReport else { return }
+        // Game report uses outcome-adjusted encouraging tone
+        let settings = VoiceSettings.encouraging
+            .adjustedForOutcome(playerWon: game.playerWon, playerLost: game.playerLost)
         let text = [
             report.summary,
             report.encouragement
         ].joined(separator: " ")
-        await voiceCoach.speak(text: text)
+        await voiceCoach.speak(text: text, voiceSettings: settings)
     }
 
     /// Generate a full game coaching report via Claude.

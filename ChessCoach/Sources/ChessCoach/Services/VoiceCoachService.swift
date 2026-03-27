@@ -1,13 +1,18 @@
 import Foundation
 import AVFoundation
 import Observation
+import os
+
+private let logger = Logger(subsystem: "com.evaschesscoach.app", category: "VoiceCoach")
 
 /// Service that synthesizes coaching text to speech via ElevenLabs
 /// and plays it back using AVAudioPlayer.
+@MainActor
 @Observable
 final class VoiceCoachService {
     private let client: ElevenLabsClient
     private var audioPlayer: AVAudioPlayer?
+    private var playerDelegate: PlaybackDelegate?
 
     /// Whether audio is currently playing
     private(set) var isSpeaking: Bool = false
@@ -20,8 +25,6 @@ final class VoiceCoachService {
 
     /// Whether the ElevenLabs API is configured (has API key)
     var isConfigured: Bool {
-        // We need to check this synchronously for UI binding,
-        // so we check the env var directly
         let key = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"] ?? ""
         return !key.isEmpty
     }
@@ -33,7 +36,8 @@ final class VoiceCoachService {
 
     /// Synthesize and play coaching text aloud.
     /// If already speaking, stops current playback first.
-    func speak(text: String) async {
+    /// Voice settings control the emotional tone (excited, supportive, etc.)
+    func speak(text: String, voiceSettings: VoiceSettings = .default) async {
         stop()
 
         // Trim and truncate to avoid hitting API limits
@@ -46,22 +50,38 @@ final class VoiceCoachService {
         isLoading = true
         lastError = nil
 
+        logger.notice("[VoiceCoach] speak() called, text length: \(text.count)")
+        logger.notice("[VoiceCoach] isConfigured: \(self.isConfigured)")
+
         do {
-            let audioData = try await client.synthesize(text: cleanText)
-            isLoading = false
+            let audioData = try await client.synthesize(text: cleanText, voiceSettings: voiceSettings)
+            logger.notice("[VoiceCoach] got audio data: \(audioData.count) bytes")
 
-            // Play the MP3 data
-            let player = try AVAudioPlayer(data: audioData)
-            self.audioPlayer = player
-            player.delegate = AudioPlayerDelegate.shared
-            AudioPlayerDelegate.shared.onFinish = { [weak self] in
-                self?.isSpeaking = false
+            let player = try AVAudioPlayer(data: audioData, fileTypeHint: "public.mp3")
+            player.prepareToPlay()
+            logger.notice("[VoiceCoach] player created, duration: \(player.duration)s")
+
+            // Keep a strong reference to both player and delegate
+            let delegate = PlaybackDelegate { [weak self] in
+                Task { @MainActor in
+                    logger.notice("[VoiceCoach] playback finished")
+                    self?.isSpeaking = false
+                    self?.audioPlayer = nil
+                    self?.playerDelegate = nil
+                }
             }
+            player.delegate = delegate
+            self.playerDelegate = delegate
+            self.audioPlayer = player
 
-            isSpeaking = true
-            player.play()
-        } catch {
             isLoading = false
+            isSpeaking = true
+            let success = player.play()
+            logger.notice("[VoiceCoach] player.play() returned: \(success)")
+        } catch {
+            logger.error("[VoiceCoach] ERROR: \(error.localizedDescription)")
+            isLoading = false
+            isSpeaking = false
             lastError = error.localizedDescription
             print("[VoiceCoach] TTS error: \(error)")
         }
@@ -71,6 +91,7 @@ final class VoiceCoachService {
     func stop() {
         audioPlayer?.stop()
         audioPlayer = nil
+        playerDelegate = nil
         isSpeaking = false
         isLoading = false
     }
@@ -89,15 +110,17 @@ final class VoiceCoachService {
     }
 }
 
-/// Helper delegate to detect when audio playback finishes.
-/// Uses a shared instance since AVAudioPlayerDelegate requires NSObject.
-private class AudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
-    static let shared = AudioPlayerDelegate()
-    var onFinish: (() -> Void)?
+/// Per-instance delegate so each playback has its own completion handler.
+/// Avoids the shared singleton problem where a new playback overwrites
+/// the previous callback.
+private class PlaybackDelegate: NSObject, AVAudioPlayerDelegate {
+    let onFinish: () -> Void
+
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+    }
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        DispatchQueue.main.async { [weak self] in
-            self?.onFinish?()
-        }
+        onFinish()
     }
 }

@@ -1,5 +1,61 @@
 import Foundation
 
+/// Voice settings for ElevenLabs TTS — controls emotional tone
+struct VoiceSettings {
+    var stability: Double
+    var similarityBoost: Double
+    var style: Double
+    var useSpeakerBoost: Bool
+
+    /// Neutral default
+    static let `default` = VoiceSettings(stability: 0.5, similarityBoost: 0.75, style: 0.3, useSpeakerBoost: true)
+
+    // MARK: - Move-level presets
+
+    /// Excited and expressive — for brilliant/great moves
+    static let celebratory = VoiceSettings(stability: 0.25, similarityBoost: 0.85, style: 0.85, useSpeakerBoost: true)
+    /// Warm and affirming — for good/solid moves
+    static let encouraging = VoiceSettings(stability: 0.45, similarityBoost: 0.75, style: 0.5, useSpeakerBoost: true)
+    /// Gentle and supportive — for inaccuracies/mistakes
+    static let supportive = VoiceSettings(stability: 0.7, similarityBoost: 0.65, style: 0.2, useSpeakerBoost: true)
+    /// Calm and reassuring — for blunders (don't pile on)
+    static let reassuring = VoiceSettings(stability: 0.85, similarityBoost: 0.6, style: 0.1, useSpeakerBoost: true)
+
+    /// Pick voice settings based on move classification
+    static func forClassification(_ classification: MoveClassification) -> VoiceSettings {
+        switch classification {
+        case .brilliant, .great: return .celebratory
+        case .good: return .encouraging
+        case .inaccuracy, .mistake: return .supportive
+        case .blunder: return .reassuring
+        }
+    }
+
+    /// Shift settings based on game outcome — winners get a brighter tone, losses get warmer support
+    func adjustedForOutcome(playerWon: Bool, playerLost: Bool) -> VoiceSettings {
+        var adjusted = self
+        if playerWon {
+            // More expressive and upbeat for winners
+            adjusted.style = min(1.0, adjusted.style + 0.15)
+            adjusted.stability = max(0.0, adjusted.stability - 0.1)
+        } else if playerLost {
+            // Warmer, steadier, more encouraging after a loss
+            adjusted.stability = min(1.0, adjusted.stability + 0.15)
+            adjusted.style = max(0.0, adjusted.style - 0.1)
+        }
+        return adjusted
+    }
+
+    var asDictionary: [String: Any] {
+        [
+            "stability": stability,
+            "similarity_boost": similarityBoost,
+            "style": style,
+            "use_speaker_boost": useSpeakerBoost
+        ]
+    }
+}
+
 /// Lightweight client for the ElevenLabs Text-to-Speech API.
 /// Returns MP3 audio data for a given text string.
 actor ElevenLabsClient {
@@ -15,7 +71,7 @@ actor ElevenLabsClient {
     init(
         apiKey: String? = nil,
         voiceId: String? = nil,
-        model: String = "eleven_flash_v2_5"
+        model: String = "eleven_multilingual_v2"
     ) {
         self.apiKey = apiKey
             ?? ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"]
@@ -39,9 +95,9 @@ actor ElevenLabsClient {
 
     /// Synthesize text to speech and return MP3 audio data.
     /// Results are cached in memory to avoid redundant API calls.
-    func synthesize(text: String) async throws -> Data {
-        // Check cache first
-        let cacheKey = text
+    func synthesize(text: String, voiceSettings: VoiceSettings = .default) async throws -> Data {
+        // Check cache first (include settings in key so different tones aren't mixed up)
+        let cacheKey = "\(text)|\(voiceSettings.stability)|\(voiceSettings.style)"
         if let cached = cache[cacheKey] {
             return cached
         }
@@ -64,12 +120,7 @@ actor ElevenLabsClient {
         let body: [String: Any] = [
             "text": text,
             "model_id": model,
-            "voice_settings": [
-                "stability": 0.5,
-                "similarity_boost": 0.75,
-                "style": 0.3,
-                "use_speaker_boost": true
-            ]
+            "voice_settings": voiceSettings.asDictionary
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
