@@ -44,28 +44,19 @@ struct GameReviewScreen: View {
                 analyzeToolbarButton
             }
         }
-        // DEBUG: voice state overlay — remove after debugging
-        .overlay(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Voice debug:")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                Text("configured: \(viewModel.voiceCoach.isConfigured ? "YES" : "NO")")
-                    .font(.system(size: 10, design: .monospaced))
-                Text("loading: \(viewModel.voiceCoach.isLoading ? "YES" : "NO")")
-                    .font(.system(size: 10, design: .monospaced))
-                Text("speaking: \(viewModel.voiceCoach.isSpeaking ? "YES" : "NO")")
-                    .font(.system(size: 10, design: .monospaced))
-                if let err = viewModel.voiceCoach.lastError {
-                    Text("err: \(err)")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.red)
-                }
-            }
-            .padding(6)
-            .background(Color.yellow.opacity(0.9))
-            .cornerRadius(6)
-            .padding(.top, 4)
+        .onKeyPress(.rightArrow) {
+            viewModel.goForward()
+            return .handled
         }
+        .onKeyPress(.leftArrow) {
+            viewModel.goBackward()
+            return .handled
+        }
+        .onKeyPress(.init(Character("e"))) {
+            viewModel.goToEnd()
+            return .handled
+        }
+        .focusable()
         .alert("Analysis Error", isPresented: .init(
             get: { viewModel.analysisError != nil },
             set: { if !$0 { viewModel.analysisError = nil } }
@@ -109,6 +100,20 @@ struct GameReviewScreen: View {
                 movesTab
             case .report:
                 reportTab
+            }
+
+            // Navigation bar pinned above tab picker (always visible on Board tab)
+            if viewModel.selectedTab == .board {
+                MoveNavigationBar(
+                    currentMoveIndex: viewModel.currentMoveIndex,
+                    totalMoves: viewModel.game.moves.count,
+                    onGoToStart: { viewModel.goToStart() },
+                    onPrevious: { viewModel.goBackward() },
+                    onNext: { viewModel.goForward() },
+                    onGoToEnd: { viewModel.goToEnd() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
             }
 
             Picker("Tab", selection: $viewModel.selectedTab) {
@@ -323,17 +328,6 @@ struct GameReviewScreen: View {
                     analyzePromptCard
                         .padding(.horizontal, 16)
                 }
-
-                // Navigation bar
-                MoveNavigationBar(
-                    currentMoveIndex: viewModel.currentMoveIndex,
-                    totalMoves: viewModel.game.moves.count,
-                    onGoToStart: { viewModel.goToStart() },
-                    onPrevious: { viewModel.goBackward() },
-                    onNext: { viewModel.goForward() },
-                    onGoToEnd: { viewModel.goToEnd() }
-                )
-                .padding(.horizontal, 16)
 
                 Spacer(minLength: 8)
             }
@@ -568,7 +562,10 @@ struct GameReviewScreen: View {
             onStopSpeaking: { viewModel.stopSpeaking() }
         )
     }
+
 }
+
+// MARK: - Previews
 
 #Preview("iPhone") {
     NavigationStack {

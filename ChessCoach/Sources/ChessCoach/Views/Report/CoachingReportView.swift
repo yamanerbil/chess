@@ -62,7 +62,10 @@ struct CoachingReportView: View {
             if let ann = game.annotations[idx], badClassifications.contains(ann.classification) {
                 if worst == nil {
                     worst = (idx, ann)
-                } else if let current = worst, badClassifications.firstIndex(of: ann.classification)! < badClassifications.firstIndex(of: current.annotation.classification)! {
+                } else if let current = worst,
+                          let annRank = badClassifications.firstIndex(of: ann.classification),
+                          let curRank = badClassifications.firstIndex(of: current.annotation.classification),
+                          annRank < curRank {
                     worst = (idx, ann)
                 }
             }
@@ -491,14 +494,15 @@ struct CoachingReportView: View {
                 ForEach(Array(report.keyMoments.enumerated()), id: \.offset) { _, moment in
                     Button {
                         // Jump to the move (convert from full-move number to half-move index)
-                        let halfMoveIndex = moment.moveNumber * 2 - 1
+                        let moveNum = moment.moveNumber.intValue
+                        let halfMoveIndex = moveNum * 2 - 1
                         if halfMoveIndex > 0 && halfMoveIndex <= game.moves.count {
                             onJumpToMove(halfMoveIndex)
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text("Move \(moment.moveNumber): \(moment.title)")
+                                Text("Move \(moment.moveNumber.intValue): \(moment.title)")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(.primary)
                                 Spacer()

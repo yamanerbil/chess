@@ -18,10 +18,65 @@ struct GameReport: Codable {
     let encouragement: String
 
     struct KeyMoment: Codable {
-        let moveNumber: Int
+        let moveNumber: MoveNumberValue
         let title: String
         let explanation: String
         let betterAlternative: String?
+
+        /// Claude sometimes returns moveNumber as Int or String
+        enum MoveNumberValue: Codable {
+            case int(Int)
+            case string(String)
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                if let intVal = try? container.decode(Int.self) {
+                    self = .int(intVal)
+                } else if let strVal = try? container.decode(String.self) {
+                    self = .string(strVal)
+                } else {
+                    self = .int(0)
+                }
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.singleValueContainer()
+                switch self {
+                case .int(let v): try container.encode(v)
+                case .string(let v): try container.encode(v)
+                }
+            }
+
+            var intValue: Int {
+                switch self {
+                case .int(let v): return v
+                case .string(let s): return Int(s) ?? 0
+                }
+            }
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        summary = try container.decode(String.self, forKey: .summary)
+        keyMoments = (try? container.decode([KeyMoment].self, forKey: .keyMoments)) ?? []
+        strengths = (try? container.decode([String].self, forKey: .strengths)) ?? []
+        homework = (try? container.decode(String.self, forKey: .homework)) ?? ""
+        encouragement = (try? container.decode(String.self, forKey: .encouragement)) ?? ""
+    }
+
+    // Allow direct init for previews/tests
+    init(summary: String, keyMoments: [KeyMoment], strengths: [String], homework: String, encouragement: String) {
+        self.summary = summary
+        self.keyMoments = keyMoments
+        self.strengths = strengths
+        self.homework = homework
+        self.encouragement = encouragement
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case summary, keyMoments, strengths, homework, encouragement
+        // Accept snake_case variants Claude sometimes uses
     }
 }
 
@@ -306,15 +361,26 @@ final class ClaudeCoachService {
         }
         cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // Extract JSON object if Claude wrapped it in text
+        if let jsonStart = cleaned.firstIndex(of: "{"),
+           let jsonEnd = cleaned.lastIndex(of: "}") {
+            cleaned = String(cleaned[jsonStart...jsonEnd])
+        }
+
         guard let data = cleaned.data(using: .utf8) else {
             throw ClaudeAPIError.decodingFailed("Response is not valid UTF-8")
         }
 
         do {
             let decoder = JSONDecoder()
+            // Try camelCase first, then snake_case
+            if let result = try? decoder.decode(type, from: data) {
+                return result
+            }
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
             return try decoder.decode(type, from: data)
         } catch {
-            throw ClaudeAPIError.decodingFailed(error.localizedDescription)
+            throw ClaudeAPIError.decodingFailed("\(error.localizedDescription) | Raw: \(String(cleaned.prefix(200)))")
         }
     }
 }

@@ -85,6 +85,7 @@ struct MoveNavigationBar: View {
     }
 
     private func startAutoPlay() {
+        stopAutoPlay()
         isAutoPlaying = true
         autoPlayTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if currentMoveIndex >= totalMoves {

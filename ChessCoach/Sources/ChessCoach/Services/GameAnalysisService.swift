@@ -90,8 +90,9 @@ final class GameAnalysisService {
         }
 
         // Phase 1: Evaluate all positions
-        updateProgress(.init(currentMove: 0, totalMoves: totalMoves, phase: .starting))
-        onProgress?(progress!)
+        let startProgress = AnalysisProgress(currentMove: 0, totalMoves: totalMoves, phase: .starting)
+        updateProgress(startProgress)
+        onProgress?(startProgress)
 
         var evals: [StockfishResult] = []
 
@@ -111,8 +112,9 @@ final class GameAnalysisService {
         }
 
         // Phase 2: Classify each move based on eval delta
-        updateProgress(.init(currentMove: totalMoves, totalMoves: totalMoves, phase: .classifying))
-        onProgress?(progress!)
+        let classifyProgress = AnalysisProgress(currentMove: totalMoves, totalMoves: totalMoves, phase: .classifying)
+        updateProgress(classifyProgress)
+        onProgress?(classifyProgress)
 
         var annotations: [Int: MoveAnnotation] = [:]
 
@@ -147,8 +149,9 @@ final class GameAnalysisService {
             )
         }
 
-        updateProgress(.init(currentMove: totalMoves, totalMoves: totalMoves, phase: .complete))
-        onProgress?(progress!)
+        let completeProgress = AnalysisProgress(currentMove: totalMoves, totalMoves: totalMoves, phase: .complete)
+        updateProgress(completeProgress)
+        onProgress?(completeProgress)
 
         return annotations
     }

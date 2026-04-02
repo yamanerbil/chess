@@ -7,19 +7,19 @@ struct VoiceSettings {
     var style: Double
     var useSpeakerBoost: Bool
 
-    /// Neutral default
-    static let `default` = VoiceSettings(stability: 0.5, similarityBoost: 0.75, style: 0.3, useSpeakerBoost: true)
+    /// Neutral default — tuned for natural, human-like delivery
+    static let `default` = VoiceSettings(stability: 0.35, similarityBoost: 0.80, style: 0.45, useSpeakerBoost: true)
 
     // MARK: - Move-level presets
 
     /// Excited and expressive — for brilliant/great moves
-    static let celebratory = VoiceSettings(stability: 0.25, similarityBoost: 0.85, style: 0.85, useSpeakerBoost: true)
+    static let celebratory = VoiceSettings(stability: 0.20, similarityBoost: 0.85, style: 0.90, useSpeakerBoost: true)
     /// Warm and affirming — for good/solid moves
-    static let encouraging = VoiceSettings(stability: 0.45, similarityBoost: 0.75, style: 0.5, useSpeakerBoost: true)
+    static let encouraging = VoiceSettings(stability: 0.35, similarityBoost: 0.80, style: 0.55, useSpeakerBoost: true)
     /// Gentle and supportive — for inaccuracies/mistakes
-    static let supportive = VoiceSettings(stability: 0.7, similarityBoost: 0.65, style: 0.2, useSpeakerBoost: true)
+    static let supportive = VoiceSettings(stability: 0.50, similarityBoost: 0.70, style: 0.35, useSpeakerBoost: true)
     /// Calm and reassuring — for blunders (don't pile on)
-    static let reassuring = VoiceSettings(stability: 0.85, similarityBoost: 0.6, style: 0.1, useSpeakerBoost: true)
+    static let reassuring = VoiceSettings(stability: 0.60, similarityBoost: 0.65, style: 0.20, useSpeakerBoost: true)
 
     /// Pick voice settings based on move classification
     static func forClassification(_ classification: MoveClassification) -> VoiceSettings {
@@ -71,7 +71,7 @@ actor ElevenLabsClient {
     init(
         apiKey: String? = nil,
         voiceId: String? = nil,
-        model: String = "eleven_multilingual_v2"
+        model: String = "eleven_flash_v2_5"
     ) {
         self.apiKey = apiKey
             ?? ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"]

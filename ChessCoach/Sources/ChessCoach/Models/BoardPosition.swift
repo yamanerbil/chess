@@ -359,7 +359,7 @@ struct BoardPosition: Equatable, Codable {
             let target = Square(file: file, rank: rank)
             guard target.isValid else { return }
             let dest = self.piece(at: target)
-            if dest == nil || dest!.color != piece.color {
+            if dest == nil || dest?.color != piece.color {
                 results.append((target, nil))
             }
         }
@@ -413,7 +413,7 @@ struct BoardPosition: Equatable, Codable {
                 guard cap.isValid else { continue }
                 let atCap = self.piece(at: cap)
                 let isEP = (enPassantTarget != nil && cap == enPassantTarget)
-                if (atCap != nil && atCap!.color != piece.color) || isEP {
+                if (atCap != nil && atCap?.color != piece.color) || isEP {
                     if cap.rank == promoRank {
                         for pt in promoTypes { results.append((cap, pt)) }
                     } else {

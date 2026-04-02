@@ -27,10 +27,11 @@ final class MoveCorrectionViewModel {
 
     /// The position at the currently selected move (or start)
     var currentPosition: BoardPosition {
-        guard let idx = selectedMoveIndex, idx < positions.count else {
+        guard let idx = selectedMoveIndex, !positions.isEmpty else {
             return positions.last ?? .initial
         }
-        return positions[idx + 1 < positions.count ? idx + 1 : positions.count - 1]
+        let posIdx = min(idx + 1, positions.count - 1)
+        return positions[max(0, posIdx)]
     }
 
     /// Position BEFORE the selected move (for showing legal moves)
@@ -85,7 +86,7 @@ final class MoveCorrectionViewModel {
 
     /// Suggestions for the currently selected move
     var suggestions: [ChessMove] {
-        guard let idx = selectedMoveIndex, idx < positions.count else { return [] }
+        guard let idx = selectedMoveIndex, idx < positions.count, idx < scannedMoves.count else { return [] }
         let pos = positions[idx]
         let scanned = scannedMoves[idx]
         return pos.similarLegalMoves(to: scanned.san, maxResults: 4)

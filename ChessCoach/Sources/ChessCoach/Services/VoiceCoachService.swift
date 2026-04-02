@@ -57,7 +57,7 @@ final class VoiceCoachService {
             let audioData = try await client.synthesize(text: cleanText, voiceSettings: voiceSettings)
             logger.notice("[VoiceCoach] got audio data: \(audioData.count) bytes")
 
-            let player = try AVAudioPlayer(data: audioData, fileTypeHint: "public.mp3")
+            let player = try AVAudioPlayer(data: audioData, fileTypeHint: "mp3")
             player.prepareToPlay()
             logger.notice("[VoiceCoach] player created, duration: \(player.duration)s")
 

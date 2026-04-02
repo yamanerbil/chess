@@ -160,8 +160,8 @@ struct ProcessingScreen: View {
 
                     // Renumber moves continuing from previous pages
                     let offset = allMoves.count
-                    for move in pageMoves {
-                        let adjustedIndex = offset + (allMoves.count - offset)
+                    for (i, move) in pageMoves.enumerated() {
+                        let adjustedIndex = offset + i
                         let color: PieceColor = (adjustedIndex % 2 == 0) ? .white : .black
                         let moveNumber = (adjustedIndex / 2) + 1
                         allMoves.append(ScannedMove(
